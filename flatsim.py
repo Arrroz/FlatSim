@@ -22,11 +22,6 @@ ground = example_links.ground(camera=cam)
 if not shapes_debug:
     test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
 
-    if len(test_robot.joints) > 3:
-        robot_type = "biped"
-    else:
-        robot_type = "monoped"
-
 if shapes_debug:
     circle1 = example_links.wheel(camera=cam)
     circle1.x = 2
