@@ -22,11 +22,6 @@ ground = example_links.ground(camera=cam)
 if not shapes_debug:
     test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
 
-if len(test_robot.joints) > 3:
-    robot_type = "biped"
-else:
-    robot_type = "monoped"
-
 if shapes_debug:
     circle1 = example_links.wheel(camera=cam)
     circle1.x = 2
@@ -90,7 +85,8 @@ def update(dt):
         return
 
     if controller_active:
-        robot_controller.update(np.array([ref.x, ref.y]), np.array([ref.theta]))
+        # robot_controller.update(np.array([ref.x, ref.y]), np.array([ref.theta])) # TODO: remove
+        robot_controller.update(np.array([ref.x, ref.y, ref.theta]))
 
     [b.apply_force(utils.gravity[0] * b.mass, utils.gravity[1] * b.mass) for b in body_collection.movables] # gravity
     ext_force.update() # external force

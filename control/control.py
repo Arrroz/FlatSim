@@ -6,9 +6,13 @@ class LegController():
 
     def __init__(self, joints: list[joint.Joint], foot_radius, foot_anchor):
         self.joints = joints
+        self.links = [j.child for j in joints]
+        self.links.append(joints[-1].parent)
+
         self.foot_radius = foot_radius
+        
         self.n_joints = len(joints)
-        self.n_links = self.n_joints + 1
+        self.n_links = len(self.links)
         
         self.joint_positions = [joints[0].anchor_child - foot_anchor]
         self.link_positions = [-foot_anchor]
@@ -18,70 +22,94 @@ class LegController():
         self.link_positions.append(-joints[-1].anchor_parent)
         
         cross_mat = np.array([[0, -1], [1, 0]])
-        self.crossed_joint_positions = [np.matmul(cross_mat, p) for p in self.joint_positions]
-        self.crossed_link_positions = [np.matmul(cross_mat, p) for p in self.link_positions]
+        self.crossed_joint_positions = [cross_mat @ p for p in self.joint_positions]
+        self.crossed_link_positions = [cross_mat @ p for p in self.link_positions]
 
         # Jr_i = [1, 1, ..., 0, 0] (number of 1s is given by the link being referred to)
-        self.Jr = [] # type: list[np.ndarray]
+        self.Jr = [np.zeros((1, self.n_links)) for i in range(self.n_links)]
         for i in range(self.n_links):
-            new_Jr = np.zeros((1, self.n_links))
             for j in range(i+1):
-                new_Jr[0, j] = 1
+                self.Jr[i][0, j] = 1
+        self.dJr = [np.zeros((1, self.n_links)) for i in range(self.n_links)]
 
-            self.Jr.append(new_Jr)
-        
-        self.Jp = [np.zeros((2, self.n_links))] # type: list[np.ndarray]
+        self.Jp = [np.zeros((2, self.n_links)) for i in range(self.n_links)]
         self.Jp[0][0,0] = self.foot_radius
-        for i in range(self.n_joints):
-            self.Jp.append(np.zeros((2, self.n_links)))
+        self.dJp = [np.zeros((2, self.n_links)) for i in range(self.n_links)]
 
-        self.Jt = [] # type: list[np.ndarray]
-        for i in range(self.n_links):
-            self.Jt.append(np.zeros((2, self.n_links)))
+        self.Jt = [np.zeros((2, self.n_links)) for i in range(self.n_links)]
+        self.dJt = [np.zeros((2, self.n_links)) for i in range(self.n_links)]
+
+        self.M = np.zeros((self.n_links, self.n_links))
+        self.C = np.zeros((self.n_links, self.n_links))
         
         self.Fg = np.zeros((self.n_links,))
     
     def update_matrices(self):
         # R_i
-        rot_matrices = [utils.rotation_m(self.joints[0].child.theta)]
-        for i in range(self.n_joints):
-            rot_matrices.append(utils.rotation_m(self.joints[i].parent.theta))
+        rot_matrices = [utils.rotation_m(l.theta) for l in self.links]
 
         # Jp
         for i in range(1, self.n_links):
-            # new_term = R_i-1 * [x] * l_i-1
-            new_term = np.matmul(rot_matrices[i-1], self.crossed_joint_positions[i-1])
+            new_term = rot_matrices[i-1] @ self.crossed_joint_positions[i-1]
             
             # new_matrix = [new_term, new_term, ..., 0, 0] (number of 'new_term' columns is given by the joint being referred to)
             new_matrix = np.zeros((2, self.n_links))
             for j in range(i):
                 new_matrix[:,j] = new_term
 
-            # Jp_i = Jp_i-1 + new_matrix
             self.Jp[i] = self.Jp[i-1] + new_matrix
+        
+        # dJp
+        for i in range(1, self.n_links):
+            new_term = -rot_matrices[i-1] @ self.joint_positions[i-1] * self.links[i-1].w
+
+            # new_matrix = [new_term, new_term, ..., 0, 0] (number of 'new_term' columns is given by the joint being referred to)
+            new_matrix = np.zeros((2, self.n_links))
+            for j in range(i):
+                new_matrix[:,j] = new_term
+            
+            self.dJp[i] = self.dJp[i-1] + new_matrix
 
         # Jt
         for i in range(len(self.Jp)):
-            # new_term = R_i * [x] * l_ic
-            new_term = np.matmul(rot_matrices[i], self.crossed_link_positions[i])
+            new_term = rot_matrices[i] @ self.crossed_link_positions[i]
             
             # new_matrix = [new_term, new_term, ..., 0, 0] (number of 'new_term' columns is given by the joint being referred to)
-            new_matrix = np.zeros((2, len(self.joints)+1))
+            new_matrix = np.zeros((2, self.n_links))
             for j in range(i+1):
                 new_matrix[:,j] = new_term
 
-            # Jt_i = Jp_i + new_matrix
             self.Jt[i] = self.Jp[i] + new_matrix
+        
+        # dJt
+        for i in range(len(self.Jp)):
+            new_term = -rot_matrices[i] @ self.link_positions[i] * self.links[i].w
+            
+            # new_matrix = [new_term, new_term, ..., 0, 0] (number of 'new_term' columns is given by the joint being referred to)
+            new_matrix = np.zeros((2, self.n_links))
+            for j in range(i+1):
+                new_matrix[:,j] = new_term
+
+            self.dJt[i] = self.dJp[i] + new_matrix
+        
+        # M
+        self.M = np.zeros((self.n_links, self.n_links))
+        for i in range(self.n_links):
+            self.M += (self.Jt[i].T @ self.Jt[i] * self.links[i].mass +
+                       self.Jr[i].T @ self.Jr[i] * self.links[i].moi)
+        
+        # C
+        self.C = np.zeros((self.n_links, self.n_links))
+        for i in range(self.n_links):
+            self.C += (self.Jt[i].T @ self.dJt[i] * self.links[i].mass +
+                       self.Jr[i].T @ self.dJr[i] * self.links[i].moi)
         
         # Fg
         self.Fg = np.zeros((self.n_links,))
-        for i in range(self.n_joints):
-            # Fg = sum(Jt_i^T * m_i * g)
-            self.Fg += np.matmul(np.transpose(self.Jt[i]), utils.gravity) * self.joints[i].child.mass
-        
-        # TODO: implement M and N components compensation
+        for i in range(self.n_links):
+            self.Fg += self.Jt[i].T @ utils.gravity * self.links[i].mass
 
-    def update(self, body_force_ref, body_torque_ref): # check notes for explanations of these formulas
+    def update(self, ref, dref=np.zeros((3,))): # check notes for explanations of these formulas
         self.update_matrices()
         
         # TODO: remove; this ignores the torque ref and allows the base to spin while keeping the center of mass in place
@@ -99,16 +127,44 @@ class LegController():
         # body_force_ref = body_wrench_ref[:2,0]
         # body_torque_ref = body_wrench_ref[2:,0]
 
-        # Fb = - Jt_-1^T * f_b - Jr_-1^T * tau_b
-        Fb = - (np.matmul(np.transpose(self.Jt[-1]), body_force_ref) +
-                np.matmul(np.transpose(self.Jr[-1]), body_torque_ref))
+        # Fb = - (self.Jt[-1].T @ body_force_ref + self.Jr[-1].T @ body_torque_ref)
         
-        Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
-        for i in range(len(self.joints)):
-            self.joints[i].parent.apply_torque(-Fu[i+1])
-            self.joints[i].child.apply_torque(Fu[i+1])
+        # Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
+        # for i in range(len(self.joints)):
+        #     self.joints[i].parent.apply_torque(-Fu[i+1])
+        #     self.joints[i].child.apply_torque(Fu[i+1])
 
         # print(Fu) # TODO: only here for debugging
+
+        # TODO: get these out of here
+        kp = 5
+        kd = 10
+
+        body = self.links[-1]
+        error = ref - np.array([body.x, body.y, body.theta])
+        derror = dref - np.array([body.vx, body.vy, body.w])
+        acc_ref = kp * error + kd * derror
+
+        dql = np.zeros((self.n_joints+1,))
+        dql[0] = self.links[0].w
+        for i in range(1, self.n_links):
+            dql[i] = self.links[i].w - self.links[i-1].w
+        
+        Jb = np.vstack([self.Jt[-1], self.Jr[-1]])
+        dJb = np.vstack([self.dJt[-1], self.dJr[-1]])
+
+        Amat = Jb @ np.linalg.inv(self.M)
+        Bmat = (dJb - Amat @ self.C) @ dql + Amat @ self.Fg
+        A_0mat = Amat[:,1:]
+
+        torques = np.linalg.inv(A_0mat) @ (acc_ref - Bmat)
+
+        # torque_limit = 20 # TODO: move somewhere appropriate
+        # torques = np.clip(torques, -torque_limit, torque_limit)
+
+        for i in range(self.n_joints):
+            self.joints[i].parent.apply_torque(torques[i])
+            self.joints[i].child.apply_torque(-torques[i])
 
 
 class BodyController():
@@ -135,7 +191,7 @@ class BodyController():
         # Get required wrench as the output of a PD controller
         force_ref = self.kp * pos_error + self.kd * vel_error# + ki * self.int_pos_error
         torque_ref = self.kp * theta_error + self.kd * w_error# + ki * self.int_theta_error
-        force_ref += - self.body.mass * utils.gravity
+        # force_ref += - self.body.mass * utils.gravity
 
         # Solve the wrench distribution problem
         nLegs = len(self.leg_controllers)

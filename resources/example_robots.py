@@ -61,7 +61,7 @@ def wheeled_monoped(camera: camera.Camera, ground_height=-1.5):
     body_y = ground_height + wheel_radius + 0.8*np.sqrt(2) - hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, 0])
     
-    return (model, controller)
+    return (model, leg_controller)
 
 def biped(camera: camera.Camera, ground_height=-1.5):
     body_length = 2
