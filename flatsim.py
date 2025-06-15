@@ -4,8 +4,10 @@ from physics import engine, constraint, collision, solver, utils
 from graphics import camera
 from resources import example_robots, example_links
 from misc import collision_visuals, external_force, reference
+from robot import joint
 
 shapes_debug = False # debugging with random shapes; TODO: remove once done
+rolling_contact_joint = False # TODO: remove once unnecessary
 
 # numpy setup
 np.set_printoptions(precision=2, suppress=True)
@@ -21,6 +23,12 @@ ground = example_links.ground(camera=cam)
 
 if not shapes_debug:
     test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
+
+    if rolling_contact_joint:
+        ground_joint = joint.RollingContactJoint(radius=0.2, normal=np.array([0,1]), # TODO: wheel radius and ground anchor are hard-coded
+                                                parent=ground, anchor_parent=np.array([0, 25]),
+                                                child=test_robot.joints[-1].child, anchor_child=np.array([0, 0]),
+                                                actuated=False)
 
 if shapes_debug:
     circle1 = example_links.wheel(camera=cam)
@@ -42,6 +50,11 @@ if not shapes_debug:
     body_collection.add_collision_ignore_set(test_robot.links())
     constraint_collection = constraint.ConstraintCollection([constraint.RJointConstraint(j) for j in test_robot.joints], body_collection) # TODO: cleaner way of doing this?
     correction_constraint_collection = constraint.ConstraintCollection([constraint.RJointConstraint(j) for j in test_robot.joints], body_collection) # TODO: cleaner way of doing this?
+
+    if rolling_contact_joint:
+        body_collection.add_collision_ignore_set(test_robot.links() + [ground])
+        constraint_collection.add_constraint(constraint.RollingContactJointConstraint(ground_joint))
+        correction_constraint_collection.add_constraint(constraint.RollingContactJointConstraint(ground_joint))
 
 eng = engine.Engine(constraint_collection, correction_constraint_collection, solver.LemkeSolver(), solver.LemkeSolver())
 
@@ -87,7 +100,7 @@ def update(dt):
 
     if not shapes_debug:
         if controller_active:
-            robot_controller.update(np.array([ref.x, ref.y]), np.array([ref.theta]))
+            robot_controller.update(np.array([ref.x, ref.y, ref.theta]))
 
     [b.apply_force(utils.gravity * b.mass) for b in body_collection.movables] # gravity
     ext_force.update() # external force
