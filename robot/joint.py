@@ -37,3 +37,32 @@ class RJoint(Joint):
         
         self.child.x = child_pos[0]
         self.child.y = child_pos[1]
+
+
+class RollingContactJoint(Joint): # only valid for circles rolling on a flat surface; no endpoints
+
+    def __init__(self, radius, normal, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.radius = radius
+        self.normal = normal
+        
+        self.set_angle(0)
+        
+    def get_angle(self):
+        return self.child.theta - self.parent.theta - self.offset
+    
+    def set_angle(self, angle):
+        self.angle = angle
+
+        self.child.theta = self.parent.theta + np.arctan2(self.normal[1], self.normal[0]) + self.offset + angle
+
+        child_pos = (np.array([self.parent.x, self.parent.y]) +
+                     utils.rotation_m(self.parent.theta) @ self.anchor_parent -
+                     utils.rotation_m(self.child.theta) @ self.anchor_child +
+                     utils.rotation_m(self.parent.theta) * self.radius @ (
+                         np.eye(2) + angle*np.array([[0, -1], [1, 0]])
+                     ) @ self.normal)
+        
+        self.child.x = child_pos[0]
+        self.child.y = child_pos[1]
+
