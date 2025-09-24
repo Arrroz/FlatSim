@@ -106,10 +106,10 @@ class LegController():
         
         # Fg
         self.Fg = np.zeros((self.n_links,))
-        for i in range(self.n_links):
+        for i in range(self.n_links-1):
             self.Fg += self.Jt[i].T @ utils.gravity * self.links[i].mass
 
-    def update(self, ref, dref=np.zeros((3,))): # check notes for explanations of these formulas
+    def update(self, body_force_ref, body_torque_ref): # check notes for explanations of these formulas
         self.update_matrices()
         
         # TODO: remove; this ignores the torque ref and allows the base to spin while keeping the center of mass in place
@@ -127,47 +127,18 @@ class LegController():
         # body_force_ref = body_wrench_ref[:2,0]
         # body_torque_ref = body_wrench_ref[2:,0]
 
-        # Fb = - (self.Jt[-1].T @ body_force_ref + self.Jr[-1].T @ body_torque_ref)
+        Fb = - (self.Jt[-1].T @ body_force_ref + self.Jr[-1].T @ body_torque_ref)
         
-        # Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
-        # for i in range(len(self.joints)):
-        #     self.joints[i].parent.apply_torque(-Fu[i+1])
-        #     self.joints[i].child.apply_torque(Fu[i+1])
+        Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
+        for i in range(len(self.joints)):
+            self.joints[i].parent.apply_torque(-Fu[i+1])
+            self.joints[i].child.apply_torque(Fu[i+1])
 
         # print(Fu) # TODO: only here for debugging
 
-        # TODO: get these out of here
-        kp = 5
-        kd = 10
-
-        body = self.links[-1]
-        error = ref - np.array([body.x, body.y, body.theta])
-        derror = dref - np.array([body.vx, body.vy, body.w])
-        acc_ref = kp * error + kd * derror
-
-        dql = np.zeros((self.n_joints+1,))
-        dql[0] = self.links[0].w
-        for i in range(1, self.n_links):
-            dql[i] = self.links[i].w - self.links[i-1].w
-        
-        Jb = np.vstack([self.Jt[-1], self.Jr[-1]])
-        dJb = np.vstack([self.dJt[-1], self.dJr[-1]])
-
-        Amat = Jb @ np.linalg.inv(self.M)
-        Bmat = (dJb - Amat @ self.C) @ dql + Amat @ self.Fg
-        A_0mat = Amat[:,1:]
-
-        torques = np.linalg.inv(A_0mat) @ (acc_ref - Bmat)
-
-        # torque_limit = 20 # TODO: move somewhere appropriate
-        # torques = np.clip(torques, -torque_limit, torque_limit)
-
-        for i in range(self.n_joints):
-            self.joints[i].parent.apply_torque(torques[i])
-            self.joints[i].child.apply_torque(-torques[i])
-
 
 class BodyController():
+
     def __init__(self, body: link.Link, leg_controllers: list[LegController], kp=50, kd=50):
         self.body = body
         self.leg_controllers = leg_controllers
@@ -191,7 +162,7 @@ class BodyController():
         # Get required wrench as the output of a PD controller
         force_ref = self.kp * pos_error + self.kd * vel_error# + ki * self.int_pos_error
         torque_ref = self.kp * theta_error + self.kd * w_error# + ki * self.int_theta_error
-        # force_ref += - self.body.mass * utils.gravity
+        force_ref += - self.body.mass * utils.gravity
 
         # Solve the wrench distribution problem
         nLegs = len(self.leg_controllers)
@@ -224,6 +195,63 @@ class BodyController():
             torque = wrenches[3*i+2:3*i+3]
 
             self.leg_controllers[i].update(force, torque)
+
+
+class WholeBodyController():
+
+    def __init__(self, body: link.Link, leg_controllers: list[LegController], kp=5, kd=10):
+        self.body = body
+        self.leg_controllers = leg_controllers
+        self.kp = kp
+        self.kd = kd
+        self.int_error = np.array([0.0, 0.0, 0.0]) # TODO: testing integral component
+        
+    def update(self, ref, dref=np.zeros((3,))):
+        # Find pose and velocity errors
+        error = ref - np.array([self.body.x, self.body.y, self.body.theta])
+        derror = dref - np.array([self.body.vx, self.body.vy, self.body.w])
+        # TODO: testing integral component
+        self.int_error += error
+        ki = 0.2
+
+        # Get reference acceleration as the output of a PD controller
+        acc_ref = self.kp * error + self.kd * derror# + ki * self.int_error
+
+        # Solve the leg influence distribution problem
+        lsMat = np.zeros((3,0))
+        parasite_influences = np.zeros((3,))
+
+        for lc in self.leg_controllers:
+            lc.update_matrices() # TODO: requiring the jacobians to be calculcated by the legs first is annoying for the distributed control
+
+            dql = np.zeros((lc.n_joints+1,))
+            dql[0] = lc.links[0].w
+            for i in range(1, lc.n_links):
+                dql[i] = lc.links[i].w - lc.links[i-1].w
+            
+            Jb = np.vstack((lc.Jt[-1], lc.Jr[-1]))
+            dJb = np.vstack((lc.dJt[-1], lc.dJr[-1]))
+
+            Amat = Jb @ np.linalg.inv(lc.M)
+
+            lsMat = np.hstack((lsMat, Amat[:,1:]))
+            parasite_influences += (dJb - Amat @ lc.C) @ dql + Amat @ lc.Fg
+
+        lc = self.leg_controllers[0] # TODO: the gravity influence should be leg agnostic
+        Jb = np.vstack((lc.Jt[-1], lc.Jr[-1]))
+        gravity_influence = np.concatenate((utils.gravity, [0])) # WARNING: this is actually much more complex than shown and very complicated to decompose in such a way that this is one of the terms
+        # gravity_influence = Jb @ np.linalg.inv(lc.M) @ Jb.T @ np.concatenate((utils.gravity, [0])) * self.body.mass
+        
+        lsVec = acc_ref - parasite_influences - gravity_influence
+
+        torques, _, _, _ = np.linalg.lstsq(lsMat, lsVec)
+
+        i = 0
+        for lc in self.leg_controllers:
+            for j in lc.joints:
+                j.parent.apply_torque(torques[i])
+                j.child.apply_torque(-torques[i])
+                i += 1
 
 
 class TorqueController():
