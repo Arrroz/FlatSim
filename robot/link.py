@@ -8,9 +8,7 @@ class Link(collision.Collidable):
 
         super().__init__(*args, **kwargs)
 
-    def __setattr__(self, name, value):
-        if name == 'x' or name == 'y' or name == 'theta':
-            self.sprite.__setattr__(name, value)
-                
-        super().__setattr__(name, value)
-
+    @property
+    def pose(self): return self.sprite.pose
+    @pose.setter
+    def pose(self, value): self.sprite.pose = value

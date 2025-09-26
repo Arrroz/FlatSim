@@ -1,36 +1,46 @@
 import numpy as np
 from pyglet import shapes
-from graphics import camera
+from graphics.camera import Camera
 
 class Sprite():
 
-    def __init__(self, shapes: list[shapes.ShapeBase], camera: camera.Camera):
+    def __init__(self, shapes: list[shapes.ShapeBase], camera: Camera):
         self.shapes = shapes
         self.camera = camera
 
-        self.x = 0
-        self.y = 0
-        self.theta = 0
-
-    def __setattr__(self, name: str, value):
-        self.__dict__[name] = value
-
-        if name == 'x':
-            for s in self.shapes:
-                s.__setattr__(name, (value - self.camera.offset_x) * self.camera.scale + self.camera.width/2)
-        elif name == 'y':
-            for s in self.shapes:
-                s.__setattr__(name, (value - self.camera.offset_y) * self.camera.scale + self.camera.height/2)
-        elif name == 'theta':
-            for s in self.shapes:
-                s.rotation = -np.rad2deg(value)
-        elif name == 'camera':
-            self._update_batch(value.batch)
-            self._update_scale(value.scale) # TODO: how does this work? it doesn't xP
-            if self in self.camera.sprites:
-                self.camera.sprites.remove(self)
-            value.sprites.append(self)
+        self.pose = np.zeros((3,))
     
+    @property
+    def camera(self):
+        return self._camera
+    @camera.setter
+    def camera(self, value: Camera):
+        self._camera = value
+        self._update_batch(value.batch)
+        if self in self._camera.sprites:
+            self._camera.sprites.remove(self)
+        value.sprites.append(self)
+
+    @property
+    def pos(self): return self.pose[:2]
+    @pos.setter
+    def pos(self, value): self.pose[:2] = value
+    
+    @property
+    def x(self): return self.pose[0]
+    @x.setter
+    def x(self, value): self.pose[0] = value
+
+    @property
+    def y(self): return self.pose[1]
+    @y.setter
+    def y(self, value): self.pose[1] = value
+
+    @property
+    def theta(self): return self.pose[2]
+    @theta.setter
+    def theta(self, value): self.pose[2] = value
+
     def _update_batch(self, batch):
         for s in self.shapes:
             s.batch = batch

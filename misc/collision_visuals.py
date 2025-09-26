@@ -18,13 +18,11 @@ class CollisionVisuals():
 
         for c in collisions:
             s1 = self.sprite_function(camera=self.camera)
-            s1.x = c.collidable1.x + c.relative_pos1[0]
-            s1.y = c.collidable1.y + c.relative_pos1[1]
+            s1.pos = c.collidable1.pos + c.relative_pos1
             s1.theta = np.arctan2(c.normal[1], c.normal[0])
             self.sprites.append(s1)
 
             s2 = self.sprite_function(camera=self.camera)
-            s2.x = c.collidable2.x + c.relative_pos2[0]
-            s2.y = c.collidable2.y + c.relative_pos2[1]
+            s2.pos = c.collidable2.pos + c.relative_pos2
             s2.theta = np.arctan2(-c.normal[1], -c.normal[0])
             self.sprites.append(s2)

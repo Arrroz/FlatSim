@@ -1,4 +1,5 @@
 from pyglet.window import key
+import numpy as np
 from graphics import camera
 from resources import example_sprites
 
@@ -8,22 +9,33 @@ class Reference():
         self.sprite = example_sprites.reference(camera=camera)
         self.key_handler = key_handler
         
-        self.x = x
-        self.y = y
-        self.theta = theta
-
         self.speed = 2
+
+    @property
+    def pose(self): return self.sprite.pose
+    @pose.setter
+    def pose(self, value): self.sprite.pose = value
+
+    @property
+    def pos(self): return self.pose[:2]
+    @pos.setter
+    def pos(self, value): self.pose[:2] = value
+
+    @property
+    def x(self): return self.pose[0]
+    @x.setter
+    def x(self, value): self.pose[0] = value
     
-    def __setattr__(self, name: str, value):
-        super().__setattr__(name, value)
-
-        if name == "x":
-            self.sprite.x = value
-        elif name == "y":
-            self.sprite.y = value
-        elif name == "theta":
-            self.sprite.theta = value
-
+    @property
+    def y(self): return self.pose[1]
+    @y.setter
+    def y(self, value): self.pose[1] = value
+    
+    @property
+    def theta(self): return self.pose[2]
+    @theta.setter
+    def theta(self, value): self.pose[2] = value
+    
     def update(self, dt):
         if self.key_handler[key.RIGHT]:
             self.x += self.speed*dt

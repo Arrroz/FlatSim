@@ -52,7 +52,7 @@ class ConstraintCollection():
         start_i = 0
         for b in self.body_collection.movables:
             end_i = start_i + 3
-            self.matrices.F[start_i:end_i] = [b.rfx, b.rfy, b.rtorque]
+            self.matrices.F[start_i:end_i] = b.rwrench
             start_i = end_i
 
     def update_jacobians(self):

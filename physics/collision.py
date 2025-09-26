@@ -4,7 +4,7 @@ from physics import body, constraint
 class CollidableFeature():
     
     def __init__(self, anchor_x=0, anchor_y=0):
-        self.parent = None
+        self.parent = None # type: Collidable
         self.anchor = np.array([anchor_x, anchor_y])
         self.tolerance = 1e-3 # TODO: this shouldn't be here; it shouldn't even be feature dependent (should be universally applicable to all features)
 
@@ -12,8 +12,8 @@ class CollidableFeature():
         cos_theta = np.cos(self.parent.theta)
         sin_theta = np.sin(self.parent.theta)
         r_mat = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
-        self.relative_pos = np.matmul(r_mat, self.anchor)
-        self.pos = np.array([self.parent.x, self.parent.y]) + self.relative_pos
+        self.relative_pos = r_mat @ self.anchor
+        self.pos = self.parent.pos + self.relative_pos
 
     def colliding(self, feature):
         return None
@@ -54,13 +54,12 @@ class CollidableCollection(body.BodyCollection):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        self.collidables = [b for b in self.bodies if hasattr(b, 'collidable_features')]
-        self.collisions = []
-        self.ignorable_collisions = []
-        self.contact_constraints = []
-        self.friction_constraints = []
+        self.collidables = [b for b in self.bodies if hasattr(b, 'collidable_features')] # type: list[Collidable]
+        self.collisions = [] # type: list[Collision]
+        self.contact_constraints = [] # type: list[constraint.ContactConstraint]
+        self.friction_constraints = [] # type: list[constraint.FrictionConstraint]
 
-        self.collidable_feature_pairs = []
+        self.collidable_feature_pairs = [] # type: list[tuple[CollidableFeature]]
         for i in range(len(self.collidables)-1):
             collidable1 = self.collidables[i]
 
@@ -193,7 +192,7 @@ class Line(CollidableFeature):
         self.anchor1 = np.array([anchor_x1, anchor_y1])
         self.anchor2 = np.array([anchor_x2, anchor_y2])
         diff = self.anchor2 - self.anchor1
-        self.length = np.sqrt(np.dot(diff, diff))
+        self.length = np.linalg.norm(diff)
         if self.length == 0:
             raise ValueError('Both points of Line Collidable are coincident')
 
@@ -201,12 +200,11 @@ class Line(CollidableFeature):
         cos_theta = np.cos(self.parent.theta)
         sin_theta = np.sin(self.parent.theta)
         r_mat = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
-        parent_pos = np.array([self.parent.x, self.parent.y])
 
-        self.relative_p1 = np.matmul(r_mat, self.anchor1)
-        self.relative_p2 = np.matmul(r_mat, self.anchor2)
-        self.p1 = parent_pos + self.relative_p1
-        self.p2 = parent_pos + self.relative_p2
+        self.relative_p1 = r_mat @ self.anchor1
+        self.relative_p2 = r_mat @ self.anchor2
+        self.p1 = self.parent.pos + self.relative_p1
+        self.p2 = self.parent.pos + self.relative_p2
         self.tangent = (self.p2 - self.p1) / self.length
         self.normal = np.array([-self.tangent[1], self.tangent[0]]) # always points to the left of vector p1->p2
     

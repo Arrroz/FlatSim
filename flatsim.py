@@ -22,10 +22,10 @@ ground = example_links.ground(camera=cam)
 if not shapes_debug:
     test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
 
-if len(test_robot.joints) > 3:
-    robot_type = "biped"
-else:
-    robot_type = "monoped"
+    if len(test_robot.joints) > 3:
+        robot_type = "biped"
+    else:
+        robot_type = "monoped"
 
 if shapes_debug:
     circle1 = example_links.wheel(camera=cam)
@@ -38,8 +38,8 @@ if shapes_debug:
 
 # engine stuff
 if shapes_debug:
-    body_collection = collision.CollidableCollection([rect1, ground])
-    #body_collection = collision.CollidableCollection([circle1, rect1, circle2, rect2, ground])
+    # body_collection = collision.ColliqdableCollection([rect1, ground])
+    body_collection = collision.CollidableCollection([circle1, rect1, circle2, rect2, ground])
     constraint_collection = constraint.ConstraintCollection([], body_collection)
     correction_constraint_collection = constraint.ConstraintCollection([], body_collection)
 if not shapes_debug:
@@ -55,9 +55,10 @@ ext_force = external_force.ExternalForce(body_collection, cam)
 col_visuals = collision_visuals.CollisionVisuals(camera=cam)
 ref = reference.Reference(camera=cam, key_handler=key_handler)
 
-ref.x = test_robot.base.x
-ref.y = test_robot.base.y
-ref.theta = test_robot.base.theta
+if not shapes_debug:
+    ref.x = test_robot.base.x
+    ref.y = test_robot.base.y
+    ref.theta = test_robot.base.theta
 
 # data recording
 if not shapes_debug:
@@ -89,10 +90,11 @@ def update(dt):
     if not play:
         return
 
-    if controller_active:
-        robot_controller.update(np.array([ref.x, ref.y]), np.array([ref.theta]))
+    if not shapes_debug:
+        if controller_active:
+            robot_controller.update(np.array([ref.x, ref.y]), np.array([ref.theta]))
 
-    [b.apply_force(utils.gravity[0] * b.mass, utils.gravity[1] * b.mass) for b in body_collection.movables] # gravity
+    [b.apply_force(utils.gravity * b.mass) for b in body_collection.movables] # gravity
     ext_force.update() # external force
 
     # step forward the simulation
@@ -107,7 +109,7 @@ def update(dt):
         t += dt
 
     # miscellaneous
-    # col_visuals.update(body_collection.collisions)
+    col_visuals.update(body_collection.collisions)
 
 
 
