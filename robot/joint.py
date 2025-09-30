@@ -27,13 +27,8 @@ class RJoint(Joint):
         return self.child.theta - self.parent.theta - self.offset
 
     def set_angle(self, angle):
-        self.angle = angle
-
         self.child.theta = self.parent.theta + self.offset + angle
 
-        child_pos = (np.array([self.parent.x, self.parent.y]) +
-                     np.matmul(utils.rotation_m(self.parent.theta), self.anchor_parent) -
-                     np.matmul(utils.rotation_m(self.child.theta), self.anchor_child))
-        
-        self.child.x = child_pos[0]
-        self.child.y = child_pos[1]
+        self.child.pos = (self.parent.pos +
+                          utils.rotation_m(self.parent.theta) @ self.anchor_parent -
+                          utils.rotation_m(self.child.theta) @ self.anchor_child)

@@ -50,8 +50,8 @@ class LemkeSolver(Solver):
 
         B_inv = np.linalg.pinv(B)
         #B_inv = np.linalg.inv(B)
-        Bc = np.matmul(B_inv, c)
-        Bq = np.matmul(B_inv, self.q)
+        Bc = B_inv @ c
+        Bq = B_inv @ self.q
 
         ratios = np.array([Bq[i] / Bc[i] for i in range(self.n)])
         dropping_candidates = np.array([True for i in range(self.n)])
@@ -144,7 +144,7 @@ class LemkeSolver(Solver):
             raise ValueError('Lemke: number of equalities is', self.num_eqs, 'and number of total constraints is only', n)
 
         if self.num_eqs == n:
-            return (np.array([]), np.matmul(np.linalg.inv(self.M), -self.q), np.array([]))
+            return (np.array([]), np.linalg.inv(self.M) @ -self.q, np.array([]))
 
         P = self.M[:self.num_eqs,:self.num_eqs]
         Q = self.M[:self.num_eqs,self.num_eqs:]
@@ -155,16 +155,16 @@ class LemkeSolver(Solver):
         v = self.q[self.num_eqs:]
 
         P_inv = np.linalg.inv(P)
-        RP = np.matmul(R, P_inv)
+        RP = R @ P_inv
 
-        self.M = S - np.matmul(RP, Q)
-        self.q = v - np.matmul(RP, u)
+        self.M = S - RP @ Q
+        self.q = v - RP @ u
 
         sol = self.lemke()
         if sol == None:
             return None
         w, z = sol
-        x = -np.matmul(P_inv, u + np.matmul(Q, z))
+        x = -P_inv @ (u + Q @ z)
 
         return (w, x, z)
 

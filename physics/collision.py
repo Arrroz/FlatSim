@@ -219,7 +219,7 @@ class Line(CollidableFeature):
             
             inv_mat = np.array([[other.tangent[1], -other.tangent[0]], [self.tangent[1], -self.tangent[0]]]) / det
             
-            sol = np.matmul(inv_mat, self.p1 - other.p1)
+            sol = inv_mat @ (self.p1 - other.p1)
             if (sol[0] < -self.tolerance or sol[0] > self.length + self.tolerance or
                 sol[1] < -self.tolerance or sol[1] > other.length + self.tolerance):
                 return None

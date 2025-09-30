@@ -145,16 +145,14 @@ class RJointConstraint(Constraint):
             return None
 
         return sign * np.block([np.eye(2),
-                                np.matmul(
-                                    utils.rotation_m(body.theta),
-                                    np.array([[-anchor_y], [anchor_x]]))])
+                                utils.rotation_m(body.theta) @ np.array([[-anchor_y], [anchor_x]])])
 
     def e(self):
         parent = self.joint.parent
         child = self.joint.child
 
-        parent_joint_pos = np.array([parent.x, parent.y]) + np.matmul(utils.rotation_m(parent.theta), self.joint.anchor_parent)
-        child_joint_pos = np.array([child.x, child.y]) + np.matmul(utils.rotation_m(child.theta), self.joint.anchor_child)
+        parent_joint_pos = parent.pos + utils.rotation_m(parent.theta) @ self.joint.anchor_parent
+        child_joint_pos = child.pos + utils.rotation_m(child.theta) @ self.joint.anchor_child
 
         return parent_joint_pos - child_joint_pos
 
@@ -186,7 +184,7 @@ class ContactConstraint(Constraint):
     def k(self):
         b1 = self.bodies[0]
         b2 = self.bodies[1]
-        normal_relative_speed = np.matmul(self.J(b1), np.array([b1.vx, b1.vy, b1.w])) + np.matmul(self.J(b2), np.array([b2.vx, b2.vy, b2.w]))
+        normal_relative_speed = self.J(b1) @ b1.vel + self.J(b2) @ b2.vel
         
         if -normal_relative_speed < 5: # TODO: what should this constant be?
             return super().k() # contact

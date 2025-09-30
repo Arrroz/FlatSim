@@ -109,7 +109,7 @@ def update(dt):
         t += dt
 
     # miscellaneous
-    col_visuals.update(body_collection.collisions)
+    # col_visuals.update(body_collection.collisions)
 
 
 

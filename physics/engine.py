@@ -56,7 +56,7 @@ class Engine():
 
         solver.M[:mat.M_dim, mat.M_dim:] = -np.transpose(mat.J)
         solver.M[mat.M_dim:, :mat.M_dim] = mat.J
-        solver.q[:mat.M_dim] = -(np.matmul(mat.M, mat.dq) + dt * mat.F)
+        solver.q[:mat.M_dim] = -(mat.M @ mat.dq + dt * mat.F)
         solver.q[mat.M_dim:] = mat.k
 
         solver.M = np.block([[solver.M, extra_column],
