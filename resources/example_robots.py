@@ -56,7 +56,7 @@ def wheeled_monoped(camera: camera.Camera, ground_height=-1.5):
     
     model = robot.Robot(body, [hip, knee, ankle])
     leg_controller = control.LegController([ankle, knee, hip], foot_radius=wheel_radius, foot_anchor=np.array([0, 0]))
-    controller = control.WholeBodyController(body, [leg_controller], kp=10, kd=10)
+    controller = control.BodyController(body, [leg_controller])
 
     body_y = ground_height + wheel_radius + 0.8*np.sqrt(2) - hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, 0])
@@ -91,7 +91,7 @@ def biped(camera: camera.Camera, ground_height=-1.5):
     model = robot.Robot(body, [left_hip, left_knee, right_hip, right_knee])
     lleg_controller = control.LegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    controller = control.WholeBodyController(body, [lleg_controller, rleg_controller])
+    controller = control.BodyController(body, [lleg_controller, rleg_controller])
     
     body_y = ground_height + foot_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, -np.pi/4, np.pi/2])

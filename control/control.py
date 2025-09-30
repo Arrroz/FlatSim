@@ -109,7 +109,7 @@ class LegController():
         for i in range(self.n_links-1):
             self.Fg += self.Jt[i].T @ utils.gravity * self.links[i].mass
 
-    def update(self, body_force_ref, body_torque_ref): # check notes for explanations of these formulas
+    def update(self, body_wrench_ref): # check notes for explanations of these formulas
         self.update_matrices()
         
         # TODO: remove; this ignores the torque ref and allows the base to spin while keeping the center of mass in place
@@ -127,7 +127,8 @@ class LegController():
         # body_force_ref = body_wrench_ref[:2,0]
         # body_torque_ref = body_wrench_ref[2:,0]
 
-        Fb = - (self.Jt[-1].T @ body_force_ref + self.Jr[-1].T @ body_torque_ref)
+        # Fb = - (self.Jt[-1].T @ body_force_ref + self.Jr[-1].T @ body_torque_ref)
+        Fb = - np.vstack((self.Jt[-1], self.Jr[-1])).T @ body_wrench_ref
         
         Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
         for i in range(len(self.joints)):
@@ -139,36 +140,33 @@ class LegController():
 
 class BodyController():
 
-    def __init__(self, body: link.Link, leg_controllers: list[LegController], kp=50, kd=50):
+    def __init__(self, body: link.Link, leg_controllers: list[LegController], kp=10, kd=10):
         self.body = body
         self.leg_controllers = leg_controllers
         self.kp = kp
         self.kd = kd
-        self.int_pos_error = np.array([0.0, 0.0]) # TODO: testing integral component
-        self.int_theta_error = np.array([0.0]) # TODO: testing integral component
+        self.int_error = np.zeros((3,)) # TODO: testing integral component
         
-    def update(self, pos_ref, theta_ref):
+    def update(self, ref, dref=np.zeros((3,))):
         # Find pose and velocity errors
-        pos_error = pos_ref - np.array([self.body.x, self.body.y])
-        vel_error = -np.array([self.body.vx, self.body.vy])
-        theta_error = theta_ref - np.array([self.body.theta])
-        w_error = -np.array([self.body.w])
-
+        error = ref - self.body.pose
+        derror = dref - self.body.vel
         # TODO: testing integral component
-        self.int_pos_error += pos_error
-        self.int_theta_error += theta_error
+        self.int_error += error
         ki = 0.2
 
-        # Get required wrench as the output of a PD controller
-        force_ref = self.kp * pos_error + self.kd * vel_error# + ki * self.int_pos_error
-        torque_ref = self.kp * theta_error + self.kd * w_error# + ki * self.int_theta_error
-        force_ref += - self.body.mass * utils.gravity
+        # Get reference acceleration as the output of a PD controller
+        acc_ref = self.kp * error + self.kd * derror# + ki * self.int_error
+
+        # Get required wrench as a function of the reference acceleration
+        wrench_ref = (np.diag([self.body.mass, self.body.mass, self.body.moi]) @
+                      (acc_ref - np.concatenate((utils.gravity, [0]))))
 
         # Solve the wrench distribution problem
         nLegs = len(self.leg_controllers)
 
         if nLegs == 1: # monoped
-            self.leg_controllers[0].update(force_ref, torque_ref)
+            self.leg_controllers[0].update(wrench_ref)
             return
 
         JL = np.zeros((nLegs, 3*nLegs))
@@ -185,16 +183,15 @@ class BodyController():
 
         gamma = np.tile(np.eye(3), nLegs)
         
-        lsVec = np.concatenate((force_ref, torque_ref, kL))
+        lsVec = np.concatenate((wrench_ref, kL))
         lsMat = np.concatenate([gamma, JL])
 
         wrenches, _, _, _ = np.linalg.lstsq(lsMat, lsVec)
 
         for i in range(nLegs):
-            force = wrenches[3*i:3*i+2]
-            torque = wrenches[3*i+2:3*i+3]
+            wrench = wrenches[3*i:3*(i+1)]
 
-            self.leg_controllers[i].update(force, torque)
+            self.leg_controllers[i].update(wrench)
 
 
 class WholeBodyController():
@@ -204,12 +201,12 @@ class WholeBodyController():
         self.leg_controllers = leg_controllers
         self.kp = kp
         self.kd = kd
-        self.int_error = np.array([0.0, 0.0, 0.0]) # TODO: testing integral component
+        self.int_error = np.zeros((3,)) # TODO: testing integral component
         
     def update(self, ref, dref=np.zeros((3,))):
         # Find pose and velocity errors
-        error = ref - np.array([self.body.x, self.body.y, self.body.theta])
-        derror = dref - np.array([self.body.vx, self.body.vy, self.body.w])
+        error = ref - self.body.pose
+        derror = dref - self.body.vel
         # TODO: testing integral component
         self.int_error += error
         ki = 0.2
