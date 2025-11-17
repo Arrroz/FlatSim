@@ -22,7 +22,7 @@ cam.push_handlers(key_handler)
 ground = example_bodies.ground(camera=cam)
 
 if not shapes_debug:
-    test_robot, robot_controller = example_robots.biped(camera=cam)
+    test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
 
     if rolling_contact_joint:
         ground_joint = joint.RollingContactJoint(radius=0.2, normal=np.array([0,1]), # TODO: wheel radius and ground anchor are hard-coded
@@ -48,13 +48,13 @@ if shapes_debug:
 if not shapes_debug:
     body_collection = collision.CollidableCollection(test_robot.links() + [ground])
     body_collection.add_collision_ignore_set(test_robot.links())
-    constraint_collection = constraint.ConstraintCollection([constraint.RJointConstraint(j) for j in test_robot.joints], body_collection) # TODO: cleaner way of doing this?
-    correction_constraint_collection = constraint.ConstraintCollection([constraint.RJointConstraint(j) for j in test_robot.joints], body_collection) # TODO: cleaner way of doing this?
+    constraint_collection = constraint.ConstraintCollection(test_robot.joints, body_collection)
+    correction_constraint_collection = constraint.ConstraintCollection(test_robot.joints.copy(), body_collection)
 
     if rolling_contact_joint:
         body_collection.add_collision_ignore_set(test_robot.links() + [ground])
-        constraint_collection.add_constraint(constraint.RollingContactJointConstraint(ground_joint))
-        correction_constraint_collection.add_constraint(constraint.RollingContactJointConstraint(ground_joint))
+        constraint_collection.add_constraint(ground_joint)
+        correction_constraint_collection.add_constraint(ground_joint)
 
 eng = engine.Engine(constraint_collection, correction_constraint_collection, solver.LemkeSolver(), solver.LemkeSolver())
 

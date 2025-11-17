@@ -1,6 +1,5 @@
 import numpy as np
-from physics import body, collision, utils
-from robot import joint
+from physics import body, collision
 
 class Constraint():
 
@@ -124,77 +123,6 @@ class ConstraintCollection():
     
     def remove_body(self, body: Constraint):
         pass # TODO
-
-
-class RJointConstraint(Constraint):
-
-    def __init__(self, joint: joint.RJoint):
-        self.joint = joint
-        self.dimension = 2
-        self.bodies = [self.joint.parent, self.joint.child]
-        self.equality = True
-
-    def J(self, body: body.Body):
-        if body == self.joint.parent:
-            anchor_x, anchor_y = self.joint.anchor_parent
-            sign = 1
-        elif body == self.joint.child:
-            anchor_x, anchor_y = self.joint.anchor_child
-            sign = -1
-        else:
-            return None
-
-        return sign * np.block([np.eye(2),
-                                utils.rotation_m(body.theta) @ np.array([[-anchor_y], [anchor_x]])])
-
-    def e(self):
-        parent = self.joint.parent
-        child = self.joint.child
-
-        parent_joint_pos = parent.pos + utils.rotation_m(parent.theta) @ self.joint.anchor_parent
-        child_joint_pos = child.pos + utils.rotation_m(child.theta) @ self.joint.anchor_child
-
-        return parent_joint_pos - child_joint_pos
-    
-
-class RollingContactJointConstraint(Constraint):
-
-    def __init__(self, joint: joint.RollingContactJoint):
-        self.joint = joint
-        self.dimension = 2
-        self.bodies = [self.joint.parent, self.joint.child]
-        self.equality = True
-
-    def J(self, body: body.Body):
-        if body == self.joint.parent:
-            return np.block([
-                np.eye(2),
-                utils.rotation_m(self.bodies[0].theta) @ (
-                    np.array([[0, -1], [1, 0]]) @ self.joint.anchor_parent -
-                    self.joint.radius * (self.bodies[1].theta - self.bodies[0].theta) * self.joint.normal
-                )
-            ])
-
-        elif body == self.joint.child:
-            return -np.block([
-                np.eye(2),
-                (utils.rotation_m(self.bodies[1].theta) @ np.array([[-self.joint.anchor_child[1]], [self.joint.anchor_child[0]]]) -
-                utils.rotation_m(self.bodies[0].theta) * self.joint.radius @ np.array([[-self.joint.normal[1]], [self.joint.normal[0]]]))
-            ])
-
-        else:
-            return None
-        
-    def e(self):
-        parent_joint_pos = np.array([self.bodies[0].x, self.bodies[0].y]) + utils.rotation_m(self.bodies[0].theta) @ (
-                                self.joint.anchor_parent + self.joint.radius * (
-                                    np.eye(2) + (self.bodies[1].theta - self.bodies[0].theta) * np.array([[0, -1], [1, 0]])
-                                ) @ self.joint.normal
-                            )
-        
-        child_joint_pos = np.array([self.bodies[1].x, self.bodies[1].y]) + utils.rotation_m(self.bodies[1].theta) @ self.joint.anchor_child
-
-        return parent_joint_pos - child_joint_pos
 
 
 class ContactConstraint(Constraint):
