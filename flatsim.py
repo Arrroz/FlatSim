@@ -22,7 +22,7 @@ cam.push_handlers(key_handler)
 ground = example_links.ground(camera=cam)
 
 if not shapes_debug:
-    test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
+    test_robot, robot_controller = example_robots.biped(camera=cam)
 
     if rolling_contact_joint:
         ground_joint = joint.RollingContactJoint(radius=0.2, normal=np.array([0,1]), # TODO: wheel radius and ground anchor are hard-coded
@@ -100,7 +100,7 @@ def update(dt):
 
     if not shapes_debug:
         if controller_active:
-            robot_controller.update(np.array([ref.x, ref.y, ref.theta]))
+            robot_controller.update(dt, ref.pose)
 
     [b.apply_force(utils.gravity * b.mass) for b in body_collection.movables] # gravity
     ext_force.update() # external force

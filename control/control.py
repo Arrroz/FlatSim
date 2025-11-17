@@ -147,16 +147,26 @@ class BodyController():
         self.kd = kd
         self.int_error = np.zeros((3,)) # TODO: testing integral component
         
-    def update(self, ref, dref=np.zeros((3,))):
+    def update(self, dt, ref, dref=np.zeros((3,))):
         # Find pose and velocity errors
         error = ref - self.body.pose
         derror = dref - self.body.vel
         # TODO: testing integral component
-        self.int_error += error
-        ki = 0.2
+        self.int_error += error * dt
+        # ki = 0.1
+        z = 2
+        kp = 3*z*z
+        ki = z*z*z
+        kd = 3*z
+        # k = 3
+        # z = 1
+        # kp = k*2*z
+        # ki = k*z*z
+        # kd = k
 
         # Get reference acceleration as the output of a PD controller
-        acc_ref = self.kp * error + self.kd * derror# + ki * self.int_error
+        # acc_ref = self.kp * error + self.kd * derror + ki * self.int_error
+        acc_ref = kp * error + ki * self.int_error + kd * derror
 
         # Get required wrench as a function of the reference acceleration
         wrench_ref = (np.diag([self.body.mass, self.body.mass, self.body.moi]) @
@@ -203,12 +213,12 @@ class WholeBodyController():
         self.kd = kd
         self.int_error = np.zeros((3,)) # TODO: testing integral component
         
-    def update(self, ref, dref=np.zeros((3,))):
+    def update(self, dt, ref, dref=np.zeros((3,))):
         # Find pose and velocity errors
         error = ref - self.body.pose
         derror = dref - self.body.vel
         # TODO: testing integral component
-        self.int_error += error
+        self.int_error += error * dt
         ki = 0.2
 
         # Get reference acceleration as the output of a PD controller
