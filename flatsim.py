@@ -2,7 +2,7 @@ import pyglet
 import numpy as np
 from physics import engine, constraint, collision, solver, utils
 from graphics import camera
-from resources import example_robots, example_links
+from resources import example_bodies, example_robots
 from misc import collision_visuals, external_force, reference
 from robot import joint
 
@@ -19,7 +19,7 @@ key_handler = pyglet.window.key.KeyStateHandler()
 cam.push_handlers(key_handler)
 
 # setup bodies and constraints (constraints are in the test_robot)
-ground = example_links.ground(camera=cam)
+ground = example_bodies.ground(camera=cam)
 
 if not shapes_debug:
     test_robot, robot_controller = example_robots.biped(camera=cam)
@@ -31,12 +31,12 @@ if not shapes_debug:
                                                 actuated=False)
 
 if shapes_debug:
-    circle1 = example_links.wheel(camera=cam)
+    circle1 = example_bodies.wheel(camera=cam)
     circle1.x = 2
-    circle2 = example_links.wheel(camera=cam, radius=0.5)
+    circle2 = example_bodies.wheel(camera=cam, radius=0.5)
     circle2.x = -2
-    rect1 = example_links.rectangle(camera=cam)
-    rect2 = example_links.rectangle(camera=cam)
+    rect1 = example_bodies.rectangle(camera=cam)
+    rect2 = example_bodies.rectangle(camera=cam)
     rect2.y = 1
 
 # engine stuff

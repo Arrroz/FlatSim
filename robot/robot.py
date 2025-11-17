@@ -1,8 +1,9 @@
-from robot import link, joint
+from robot import joint
+from physics import body
 
 class Robot():
 
-    def __init__(self, base: link.Link, joints: list[joint.Joint]):
+    def __init__(self, base: body.Body, joints: list[joint.Joint]):
         self.base = base
         self.joints = joints
 
@@ -22,7 +23,3 @@ class Robot():
         
         return links
 
-    def integrate(self, dt):
-        for l in self.links():
-            l.integrate(dt)
-        

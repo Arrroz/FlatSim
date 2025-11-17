@@ -6,13 +6,13 @@ from resources import example_sprites
 
 class ExternalForce():
 
-    def __init__(self, link_collection: body.BodyCollection, camera: camera.Camera, sprite_function=example_sprites.arrow, magnitude_mult=50):
-        self.all_links = link_collection.movables
+    def __init__(self, body_collection: body.BodyCollection, camera: camera.Camera, sprite_function=example_sprites.arrow, magnitude_mult=50):
+        self.all_bodies = body_collection.movables
         self.camera = camera
         self.sprite_function = sprite_function
         self.magnitude_mult = magnitude_mult
 
-        self.curr_link = None
+        self.curr_body = None
         self.anchor = np.zeros((2,))
 
         self.sprite = None
@@ -24,31 +24,32 @@ class ExternalForce():
         if button != mouse.LEFT:
             return
         
-        for l in self.all_links[::-1]:
-            for s in l.sprite.shapes:
-                if (x, y) in s:
-                    self.curr_link = l
+        for l in self.all_bodies[::-1]:
+            for sprite in l.sprites:
+                for shape in sprite.shapes:
+                    if (x, y) in shape:
+                        self.curr_body = l
 
-                    x, y = self._preprocess_coordinates(x, y)
-                    p  = np.array([x, y])
-                    self.mouse = p
+                        x, y = self._preprocess_coordinates(x, y)
+                        p  = np.array([x, y])
+                        self.mouse = p
 
-                    p -= self.curr_link.pos
-                    cos_theta = np.cos(self.curr_link.theta)
-                    sin_theta = np.sin(self.curr_link.theta)
-                    rot_mat = np.array([[cos_theta, sin_theta],
-                                        [-sin_theta, cos_theta]])
-                    self.anchor = rot_mat @ p
-                    return
+                        p -= self.curr_body.pos
+                        cos_theta = np.cos(self.curr_body.theta)
+                        sin_theta = np.sin(self.curr_body.theta)
+                        rot_mat = np.array([[cos_theta, sin_theta],
+                                            [-sin_theta, cos_theta]])
+                        self.anchor = rot_mat @ p
+                        return
 
     def on_mouse_release(self, x, y, button, modifiers):
         if button != mouse.LEFT:
             return
         
-        self.curr_link = None
+        self.curr_body = None
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
-        if (not buttons & mouse.LEFT) or self.curr_link == None:
+        if (not buttons & mouse.LEFT) or self.curr_body == None:
             return
         
         x, y = self._preprocess_coordinates(x, y)
@@ -64,20 +65,20 @@ class ExternalForce():
             self.sprite.delete()
             self.sprite = None
         
-        if self.curr_link == None:
+        if self.curr_body == None:
             return
 
-        cos_theta = np.cos(self.curr_link.theta)
-        sin_theta = np.sin(self.curr_link.theta)
+        cos_theta = np.cos(self.curr_body.theta)
+        sin_theta = np.sin(self.curr_body.theta)
         rot_mat = np.array([[cos_theta, -sin_theta],
                             [sin_theta, cos_theta]])
         rotated_anchor = rot_mat @ self.anchor
 
-        start = self.curr_link.pos + rotated_anchor
+        start = self.curr_body.pos + rotated_anchor
         t = self.mouse - start
         f = self.magnitude_mult * t
 
-        self.curr_link.apply_force(f, rotated_anchor)
+        self.curr_body.apply_force(f, rotated_anchor)
 
         self.sprite = self.sprite_function(self.camera, length=np.linalg.norm(t))
         self.sprite.pos = start

@@ -1,10 +1,9 @@
 import numpy as np
-from physics import utils
-from robot import link
+from physics import utils, body
 
 class Joint():
     
-    def __init__(self, parent: link.Link, anchor_parent, child: link.Link, anchor_child, offset=0, actuated=True):
+    def __init__(self, parent: body.Body, anchor_parent, child: body.Body, anchor_child, offset=0, actuated=True):
         self.parent = parent
         self.anchor_parent = anchor_parent
 

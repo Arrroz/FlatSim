@@ -1,6 +1,6 @@
 import numpy as np
-from physics import utils
-from robot import joint, link
+from physics import utils, body
+from robot import joint
 
 class LegController():
 
@@ -140,7 +140,7 @@ class LegController():
 
 class BodyController():
 
-    def __init__(self, body: link.Link, leg_controllers: list[LegController], kp=10, kd=10):
+    def __init__(self, body: body.Body, leg_controllers: list[LegController], kp=10, kd=10):
         self.body = body
         self.leg_controllers = leg_controllers
         self.kp = kp
@@ -206,7 +206,7 @@ class BodyController():
 
 class WholeBodyController():
 
-    def __init__(self, body: link.Link, leg_controllers: list[LegController], kp=5, kd=10):
+    def __init__(self, body: body.Body, leg_controllers: list[LegController], kp=5, kd=10):
         self.body = body
         self.leg_controllers = leg_controllers
         self.kp = kp
