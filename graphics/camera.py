@@ -37,7 +37,7 @@ class Camera(window.Window):
             self.offset_y -= dy / self.scale
     
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
-        self.scale += 10 * scroll_y
+        self.scale += 0.1 * scroll_y * self.scale
     
     def on_draw(self):
         self.clear()
