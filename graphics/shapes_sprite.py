@@ -15,11 +15,13 @@ class Sprite():
         return self._camera
     @camera.setter
     def camera(self, value: Camera):
-        self._camera = value
-        self._update_batch(value.batch)
-        if self in self._camera.sprites:
+        if hasattr(self, '_camera') and self in self._camera.sprites:
             self._camera.sprites.remove(self)
+        self._camera = value
         value.sprites.append(self)
+
+        for shape in self.shapes:
+            shape.batch = self._camera.batch
 
     @property
     def pos(self): return self.pose[:2]
@@ -41,20 +43,6 @@ class Sprite():
     @theta.setter
     def theta(self, value): self.pose[2] = value
 
-    def _update_batch(self, batch):
-        for s in self.shapes:
-            s.batch = batch
-    
-    def _update_scale(self, scale):
-        for s in self.shapes:
-            s.anchor_x *= scale/self.camera.scale
-            s.anchor_y *= scale/self.camera.scale
-            if s.__class__ == shapes.Circle:
-                s.radius *= scale/self.camera.scale
-            elif s.__class__ == shapes.Rectangle:
-                s.width *= scale/self.camera.scale
-                s.height *= scale/self.camera.scale
-    
     def delete(self):
         self.camera.sprites.remove(self)
         for s in self.shapes:

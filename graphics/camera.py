@@ -1,4 +1,4 @@
-from pyglet import window, graphics, gl
+from pyglet import window, graphics, gl, shapes
 import numpy as np
 
 class Camera(window.Window):
@@ -19,16 +19,24 @@ class Camera(window.Window):
     def batch(self): return self._batch
     @batch.setter
     def batch(self, value: graphics.Batch):
-        for s in self.sprites:
-            s._update_batch(value)
+        for sprite in self.sprites:
+            for shape in sprite.shapes:
+                shape.batch = value
         self._batch = value
     
     @property
     def scale(self): return self._scale
     @scale.setter
     def scale(self, value):
-        for s in self.sprites:
-            s._update_scale(value)
+        for sprite in self.sprites:
+            for shape in sprite.shapes:
+                shape.anchor_x *= value/self.scale
+                shape.anchor_y *= value/self.scale
+                if shape.__class__ == shapes.Circle:
+                    shape.radius *= value/self.scale
+                elif shape.__class__ == shapes.Rectangle:
+                    shape.width *= value/self.scale
+                    shape.height *= value/self.scale
         self._scale = value
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
