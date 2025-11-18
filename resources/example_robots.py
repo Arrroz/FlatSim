@@ -4,16 +4,16 @@ from robot import joint, robot
 from control import control
 from resources import example_bodies
 
-def monoped(camera: camera.Camera, ground_height=-1.5):
+def monoped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     body_length = 1
     body_height = 1
     leg_link_length = 0.8
     body_mass = 2
     leg_mass = 0.5
 
-    body = example_bodies.robot_body(camera=camera, width=body_length, height=body_height, mass=body_mass)
-    thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
+    body = example_bodies.robot_body(width=body_length, height=body_height, mass=body_mass, cameras=cameras)
+    thigh = example_bodies.leg_link(length=leg_link_length, mass=leg_mass, cameras=cameras)
+    shin = example_bodies.leg_link(length=leg_link_length, mass=leg_mass, cameras=cameras)
 
     hip = joint.RJoint(body, np.array([0, -body_height/4]),
                        thigh, np.array([-leg_link_length/2, 0]),
@@ -32,7 +32,7 @@ def monoped(camera: camera.Camera, ground_height=-1.5):
     
     return (model, controller)
 
-def wheeled_monoped(camera: camera.Camera, ground_height=-1.5):
+def wheeled_monoped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     body_length = 1
     body_height = 1
     leg_link_length = 0.8
@@ -41,10 +41,10 @@ def wheeled_monoped(camera: camera.Camera, ground_height=-1.5):
     leg_mass = 0.5
     wheel_mass = 0.2
 
-    body = example_bodies.robot_body(camera=camera, width=body_length, height=body_height, mass=body_mass)
-    thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    wheel = example_bodies.wheel(camera=camera, radius=wheel_radius, mass=wheel_mass)
+    body = example_bodies.robot_body(cameras=cameras, width=body_length, height=body_height, mass=body_mass)
+    thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    wheel = example_bodies.wheel(cameras=cameras, radius=wheel_radius, mass=wheel_mass)
 
     hip = joint.RJoint(body, np.array([0, -body_height/4]),
                        thigh, np.array([-leg_link_length/2, 0]),
@@ -63,17 +63,17 @@ def wheeled_monoped(camera: camera.Camera, ground_height=-1.5):
     
     return (model, controller)
 
-def biped(camera: camera.Camera, ground_height=-1.5):
+def biped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     body_length = 2
     leg_link_length = 0.8
     body_mass = 10
     leg_mass = 2
 
-    body = example_bodies.robot_body(camera=camera, width=body_length, mass=body_mass)
-    left_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    left_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    right_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    right_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
+    body = example_bodies.robot_body(cameras=cameras, width=body_length, mass=body_mass)
+    left_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    left_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    right_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    right_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
 
     left_hip = joint.RJoint(body, np.array([-body_length/2+0.2, 0]),
                            left_thigh, np.array([-leg_link_length/2, 0]),
@@ -98,7 +98,7 @@ def biped(camera: camera.Camera, ground_height=-1.5):
     
     return (model, controller)
 
-def wheeled_biped(camera: camera.Camera, ground_height=-1.5):
+def wheeled_biped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     body_length = 2
     leg_link_length = 0.8
     wheel_radius = 0.2
@@ -106,13 +106,13 @@ def wheeled_biped(camera: camera.Camera, ground_height=-1.5):
     leg_mass = 2
     wheel_mass = 0.2
 
-    body = example_bodies.robot_body(camera=camera, width=body_length, mass=body_mass)
-    left_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    left_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    right_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    right_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    left_wheel = example_bodies.wheel(camera=camera, radius=wheel_radius, mass=wheel_mass)
-    right_wheel = example_bodies.wheel(camera=camera, radius=wheel_radius, mass=wheel_mass)
+    body = example_bodies.robot_body(cameras=cameras, width=body_length, mass=body_mass)
+    left_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    left_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    right_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    right_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    left_wheel = example_bodies.wheel(cameras=cameras, radius=wheel_radius, mass=wheel_mass)
+    right_wheel = example_bodies.wheel(cameras=cameras, radius=wheel_radius, mass=wheel_mass)
 
     left_hip = joint.RJoint(body, np.array([-body_length/2+0.2, 0]),
                            left_thigh, np.array([-leg_link_length/2, 0]),
@@ -141,20 +141,20 @@ def wheeled_biped(camera: camera.Camera, ground_height=-1.5):
     
     return (model, controller)
 
-def triped(camera: camera.Camera, ground_height=-1.5):
+def triped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     body_length = 2.5
     body_height = 0.8
     leg_link_length = 0.8
     body_mass = 15
     leg_mass = 2
 
-    body = example_bodies.robot_body(camera=camera, width=body_length, height=body_height, mass=body_mass)
-    left_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    left_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    middle_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    middle_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    right_thigh = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
-    right_shin = example_bodies.leg_link(camera=camera, length=leg_link_length, mass=leg_mass)
+    body = example_bodies.robot_body(cameras=cameras, width=body_length, height=body_height, mass=body_mass)
+    left_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    left_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    middle_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    middle_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    right_thigh = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
+    right_shin = example_bodies.leg_link(cameras=cameras, length=leg_link_length, mass=leg_mass)
 
     left_hip = joint.RJoint(body, np.array([-body_length/2+0.2, -body_height/4]),
                            left_thigh, np.array([-leg_link_length/2, 0]),

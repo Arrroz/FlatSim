@@ -19,10 +19,10 @@ key_handler = pyglet.window.key.KeyStateHandler()
 cam.push_handlers(key_handler)
 
 # setup bodies and constraints (constraints are in the test_robot)
-ground = example_bodies.ground(camera=cam)
+ground = example_bodies.ground(cameras=[cam])
 
 if not shapes_debug:
-    test_robot, robot_controller = example_robots.wheeled_monoped(camera=cam)
+    test_robot, robot_controller = example_robots.biped(cameras=[cam])
 
     if rolling_contact_joint:
         ground_joint = joint.RollingContactJoint(radius=0.2, normal=np.array([0,1]), # TODO: wheel radius and ground anchor are hard-coded
@@ -31,12 +31,12 @@ if not shapes_debug:
                                                 actuated=False)
 
 if shapes_debug:
-    circle1 = example_bodies.wheel(camera=cam)
+    circle1 = example_bodies.wheel(cameras=[cam])
     circle1.x = 2
-    circle2 = example_bodies.wheel(camera=cam, radius=0.5)
+    circle2 = example_bodies.wheel(cameras=[cam], radius=0.5)
     circle2.x = -2
-    rect1 = example_bodies.rectangle(camera=cam)
-    rect2 = example_bodies.rectangle(camera=cam)
+    rect1 = example_bodies.rectangle(cameras=[cam])
+    rect2 = example_bodies.rectangle(cameras=[cam])
     rect2.y = 1
 
 # engine stuff
@@ -59,9 +59,9 @@ if not shapes_debug:
 eng = engine.Engine(constraint_collection, correction_constraint_collection, solver.LemkeSolver(), solver.LemkeSolver())
 
 # miscellaneous
-ext_force = external_force.ExternalForce(body_collection, cam)
+ext_force = external_force.ExternalForce(camera=cam)
 col_visuals = collision_visuals.CollisionVisuals(camera=cam)
-ref = reference.Reference(camera=cam, key_handler=key_handler)
+ref = reference.Reference(key_handler=key_handler, cameras=[cam])
 
 if not shapes_debug:
     ref.x = test_robot.base.x
@@ -118,7 +118,6 @@ def update(dt):
 
     # miscellaneous
     # col_visuals.update(body_collection.collisions)
-
 
 
 if __name__ == '__main__':

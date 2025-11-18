@@ -4,10 +4,12 @@ import numpy as np
 class Camera(window.Window):
 
     def __init__(self, scale=100, offset_x=0, offset_y=0, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
         from graphics.shapes_sprite import Sprite
         self.sprites = [] # type: list[Sprite]
-        super().__init__(*args, **kwargs)
         self.batch = graphics.Batch()
+
         self.scale = scale
         self.offset_x = offset_x
         self.offset_y = offset_y
@@ -19,6 +21,7 @@ class Camera(window.Window):
     def batch(self): return self._batch
     @batch.setter
     def batch(self, value: graphics.Batch):
+        self.switch_to()
         for sprite in self.sprites:
             for shape in sprite.shapes:
                 shape.batch = value
@@ -48,6 +51,7 @@ class Camera(window.Window):
         self.scale += 0.1 * scroll_y * self.scale
     
     def on_draw(self):
+        self.switch_to()
         self.clear()
 
         # updating each shape's coordinates every iteration instead of when the sprite's coordinates change or when the camera moves is more expensive but much simpler

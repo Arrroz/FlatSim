@@ -2,15 +2,11 @@ import numpy as np
 
 class Body():
 
-    def __init__(self, mass=1, moi=1, restitution=0.6, movable=True, sprites=[]):
+    def __init__(self, mass=1, moi=1, restitution=0.6, movable=True):
         self.mass = mass
         self.moi = moi # moment of inertia
         self.restitution = restitution
         self.movable = movable
-        self.sprites = sprites
-
-        for s in sprites:
-            s.body = self
 
         self.pose = np.zeros((3,))
         self.vel = np.zeros((3,))

@@ -4,13 +4,10 @@ from graphics.camera import Camera
 
 class Sprite():
 
-    def __init__(self, shapes: list[shapes.ShapeBase], body = None, camera: Camera = None):
+    def __init__(self, shapes: list[shapes.ShapeBase], camera: Camera = None, target = None):
         self.shapes = shapes
-        self.body = body
+        self.target = target
         self.camera = camera
-
-        if body != None and not (self in body.sprites):
-            body.sprites.append(self)
 
         self._pose = np.zeros((3,))
     
@@ -19,22 +16,25 @@ class Sprite():
         return self._camera
     @camera.setter
     def camera(self, value: Camera):
+        if value == None: return
+        value.switch_to()
+
         if hasattr(self, '_camera') and self in self._camera.sprites:
             self._camera.sprites.remove(self)
         self._camera = value
         value.sprites.append(self)
 
         for shape in self.shapes:
-            shape.batch = self._camera.batch
+            shape.batch = value.batch
 
     @property
     def pose(self):
-        if self.body == None: return self._pose
-        else: return self.body.pose
+        if self.target == None: return self._pose
+        else: return self.target.pose
     @pose.setter
     def pose(self, value):
-        if self.body == None: self._pose = value
-        else: self.body.pose = value
+        if self.target == None: self._pose = value
+        else: self.target.pose = value
 
     @property
     def pos(self): return self.pose[:2]

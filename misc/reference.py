@@ -5,16 +5,12 @@ from resources import example_sprites
 
 class Reference():
 
-    def __init__(self, camera: camera.Camera, key_handler: key.KeyStateHandler, x=0, y=0, theta=0):
-        self.sprite = example_sprites.reference(camera=camera)
+    def __init__(self, key_handler: key.KeyStateHandler, cameras: list[camera.Camera] = [], x=0, y=0, theta=0):
+        self.sprites = [example_sprites.reference(camera=cam, target=self) for cam in cameras]
         self.key_handler = key_handler
         
+        self.pose = np.zeros((3,))
         self.speed = 2
-
-    @property
-    def pose(self): return self.sprite.pose
-    @pose.setter
-    def pose(self, value): self.sprite.pose = value
 
     @property
     def pos(self): return self.pose[:2]
