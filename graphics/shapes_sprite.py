@@ -1,32 +1,17 @@
 import numpy as np
 from pyglet import shapes
-from graphics.camera import Camera
 
 class Sprite():
 
-    def __init__(self, shapes: list[shapes.ShapeBase], camera: Camera = None, target = None):
+    def __init__(self, shapes: list[shapes.ShapeBase], camera=None, target=None):
         self.shapes = shapes
         self.target = target
-        self.camera = camera
+
+        if camera != None:
+            camera.add_sprite(self)
 
         self._pose = np.zeros((3,))
     
-    @property
-    def camera(self):
-        return self._camera
-    @camera.setter
-    def camera(self, value: Camera):
-        if value == None: return
-        value.switch_to()
-
-        if hasattr(self, '_camera') and self in self._camera.sprites:
-            self._camera.sprites.remove(self)
-        self._camera = value
-        value.sprites.append(self)
-
-        for shape in self.shapes:
-            shape.batch = value.batch
-
     @property
     def pose(self):
         if self.target == None: return self._pose
@@ -55,8 +40,3 @@ class Sprite():
     def theta(self): return self.pose[2]
     @theta.setter
     def theta(self, value): self.pose[2] = value
-
-    def delete(self):
-        self.camera.sprites.remove(self)
-        for s in self.shapes:
-            s.delete()

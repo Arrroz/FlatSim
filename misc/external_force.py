@@ -63,7 +63,7 @@ class ExternalForce():
     
     def update(self):
         if self.sprite != None:
-            self.sprite.delete()
+            self.camera.del_sprite(self.sprite)
             self.sprite = None
         
         if self.curr_body == None:

@@ -12,8 +12,10 @@ class CollisionVisuals():
         self.sprites = []
     
     def update(self, collisions: list[collision.Collision]):
+        if self.camera.has_exit: return
+
         for s in self.sprites:
-            s.delete()
+            self.camera.del_sprite(s)
         self.sprites = []
 
         for c in collisions:

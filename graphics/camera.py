@@ -1,13 +1,13 @@
 from pyglet import window, graphics, gl, shapes
 import numpy as np
+from graphics import shapes_sprite
 
 class Camera(window.Window):
 
     def __init__(self, scale=100, offset_x=0, offset_y=0, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        from graphics.shapes_sprite import Sprite
-        self.sprites = [] # type: list[Sprite]
+        self.sprites = [] # type: list[shapes_sprite.Sprite]
         self.batch = graphics.Batch()
 
         self.scale = scale
@@ -41,6 +41,19 @@ class Camera(window.Window):
                     shape.width *= value/self.scale
                     shape.height *= value/self.scale
         self._scale = value
+    
+    def add_sprite(self, sprite: shapes_sprite.Sprite):
+        self.sprites.append(sprite)
+        
+        self.switch_to()
+        for s in sprite.shapes:
+            s.batch = self.batch
+    
+    def del_sprite(self, sprite: shapes_sprite.Sprite):
+        self.sprites.remove(sprite)
+
+        for s in sprite.shapes:
+            s.delete()
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         if buttons & window.mouse.RIGHT:
