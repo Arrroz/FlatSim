@@ -1,5 +1,5 @@
 import numpy as np
-from physics import body, constraint
+from physics import body
 
 class CollidableFeature():
     
@@ -56,8 +56,6 @@ class CollidableCollection(body.BodyCollection):
 
         self.collidables = [b for b in self.bodies if hasattr(b, 'collidable_features')] # type: list[Collidable]
         self.collisions = [] # type: list[Collision]
-        self.contact_constraints = [] # type: list[constraint.ContactConstraint]
-        self.friction_constraints = [] # type: list[constraint.FrictionConstraint]
 
         self.collidable_feature_pairs = [] # type: list[tuple[CollidableFeature]]
         for i in range(len(self.collidables)-1):
@@ -70,7 +68,7 @@ class CollidableCollection(body.BodyCollection):
                     for f2 in collidable2.collidable_features:
                         self.collidable_feature_pairs.append((f1, f2))
 
-    def check_collisions(self):
+    def update_collisions(self):
         for c in self.collidables:
             c.update_features()
 
@@ -86,12 +84,6 @@ class CollidableCollection(body.BodyCollection):
             
             self.collisions.append(collision)
         
-        self.contact_constraints = []
-        self.friction_constraints = []
-        for c in self.collisions:
-            self.contact_constraints.append(constraint.ContactConstraint(c))
-            self.friction_constraints.append(constraint.FrictionConstraint(c))
-    
     def is_collision_duplicate(self, collision):
         for c in self.collisions:
             if (collision.collidable1 == c.collidable1 and collision.collidable2 == c.collidable2 and

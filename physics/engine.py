@@ -111,23 +111,25 @@ class Engine():
             movables[i].theta += delta_q[3*i+2]
     
     def update_collision_constraints(self):
-        for c in self.body_collection.contact_constraints:
-            self.constraint_collection.remove_constraint(c) # TODO: find way of maintaining contacts that don't disappear
-            self.correction_constraint_collection.remove_constraint(c) # TODO: find way of maintaining contacts that don't disappear
-        for c in self.body_collection.friction_constraints:
-            self.constraint_collection.remove_constraint(c) # TODO: find way of maintaining contacts that don't disappear
-            self.correction_constraint_collection.remove_constraint(c) # TODO: find way of maintaining contacts that don't disappear
+        for c in self.constraint_collection.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
+            if isinstance(c, constraint.ContactConstraint) or isinstance(c, constraint.FrictionConstraint):
+                self.constraint_collection.remove_constraint(c)
+        for c in self.correction_constraint_collection.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
+            if isinstance(c, constraint.ContactConstraint) or isinstance(c, constraint.FrictionConstraint):
+                self.correction_constraint_collection.remove_constraint(c)
         
-        self.body_collection.check_collisions()
+        self.body_collection.update_collisions()
 
-        for c in self.body_collection.contact_constraints:
-            self.constraint_collection.add_constraint(c)
-            self.correction_constraint_collection.add_constraint(c)
-        
-        self.n_friction_constraints = 0 # TODO: should this variable be a part of the constraint collection?
-        for c in self.body_collection.friction_constraints:
-            self.constraint_collection.add_constraint(c)
-            self.n_friction_constraints += 1
+        for c in self.body_collection.collisions: # TODO: the next loop needs to be separate from this one just so all the contact constraints are added before the friction ones; the construction of the matrices should be agnostic to this
+            contact_constraint = constraint.ContactConstraint(c)
+            self.constraint_collection.add_constraint(contact_constraint)
+            self.correction_constraint_collection.add_constraint(constraint.ContactConstraint(c)) # TODO: should this be a copy of the constraint instead of the same one?
+
+        for c in self.body_collection.collisions:
+            friction_constraint = constraint.FrictionConstraint(c)
+            self.constraint_collection.add_constraint(friction_constraint)
+
+        self.n_friction_constraints = len(self.body_collection.collisions) # TODO: should this variable be a part of the constraint collection?
 
     def step(self, dt): # Chapter 4.1 details the steps in this method
         # steps 1 and 2 happen outside this method
