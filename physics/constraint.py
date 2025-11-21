@@ -5,7 +5,7 @@ class Constraint():
 
     def __init__(self):
         self.dimension = 0
-        self.bodies = []
+        self.bodies = [] # list[body.Body]
         self.equality = True # False if it is an inequality constraint (joints vs contacts)
     
     def J(self, body: body.Body):
@@ -18,19 +18,19 @@ class Constraint():
         return np.zeros((self.dimension,))
 
 
-class DataMatrices(): # used in the ConstraintCollection class to hold the matrices used by the solver; the only point it to better organize the ConstraintCollection class
+class DataMatrices(): # used in the ConstraintHandler class to hold the matrices used by the solver; the only point is to better organize the ConstraintHandler class
     def __init__(self):
         self.M_dim = self.C_dim = self.n_equalities = 0
         self.M = self.F = self.dq = self.J = self.k = self.e = None
 
 
-class ConstraintCollection():
+class ConstraintHandler():
     
     def __init__(self, constraints: list[Constraint], bodies: list[body.Body]):
         self.constraints = constraints
         self.bodies = [b for b in bodies if b.movable] # filter out fixed bodies
-        self.matrices = DataMatrices()
 
+        self.matrices = DataMatrices()
         self.reset_matrices()
 
     def reset_matrices(self):

@@ -43,18 +43,15 @@ if shapes_debug:
 if shapes_debug:
     # bodies = [rect1, ground]
     bodies = [circle1, rect1, circle2, rect2, ground]
-    constraint_collection = constraint.ConstraintCollection([], bodies)
-    correction_constraint_collection = constraint.ConstraintCollection([], bodies)
+    constraints = []
 if not shapes_debug:
     bodies = test_robot.links() + [ground]
-    constraint_collection = constraint.ConstraintCollection(test_robot.joints, bodies)
-    correction_constraint_collection = constraint.ConstraintCollection(test_robot.joints.copy(), bodies)
+    constraints = test_robot.joints
 
     if rolling_contact_joint:
-        constraint_collection.add_constraint(ground_joint)
-        correction_constraint_collection.add_constraint(ground_joint)
+        constraints.append(ground_joint)
 
-eng = engine.Engine(bodies, constraint_collection, correction_constraint_collection)
+eng = engine.Engine(bodies, constraints)
 
 if not shapes_debug:
     if rolling_contact_joint:

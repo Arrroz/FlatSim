@@ -3,25 +3,28 @@ from physics import body, solver, constraint, collision
 
 class Engine():
 
-    # TODO: there's redundancy in getting the bodies as an argument while most of them are already in the constraint_collection
-    def __init__(self, bodies: list[body.Body], constraint_collection: constraint.ConstraintCollection, correction_constraint_collection: constraint.ConstraintCollection,
+    # def __init__(self, bodies: list[body.Body], constraint_handler: constraint.ConstraintHandler, correction_constraint_handler: constraint.ConstraintHandler,
+    def __init__(self, bodies: list[body.Body], constraints: list[constraint.Constraint],
                  integration_solver: solver.Solver = solver.LemkeSolver(), drift_solver: solver.Solver = solver.LemkeSolver()):
-        self.constraint_collection = constraint_collection
-        self.correction_constraint_collection = correction_constraint_collection
+        self.bodies = bodies
+        self.constraints = constraints
         self.integration_solver = integration_solver
         self.drift_solver = drift_solver
-
-        self.bodies = bodies
+        
         self.movables = [b for b in self.bodies if b.movable]
-        self.collision_handler = collision.CollisionHandler(self.bodies)
+
+        self.constraint_handler = constraint.ConstraintHandler(constraints, bodies)
+        self.correction_constraint_handler = constraint.ConstraintHandler(constraints.copy(), bodies)
+
+        self.collision_handler = collision.CollisionHandler(bodies)
 
         self.reset_solver_matrices()
 
         self.n_friction_constraints = 0
 
     def reset_solver_matrices(self):
-        mat = self.constraint_collection.matrices
-        c_mat = self.correction_constraint_collection.matrices
+        mat = self.constraint_handler.matrices
+        c_mat = self.correction_constraint_handler.matrices
 
         self.integration_solver.M = np.block([[mat.M, np.zeros((mat.M_dim, mat.C_dim))],
                                               [np.zeros((mat.C_dim, mat.M_dim + mat.C_dim))]])
@@ -36,10 +39,10 @@ class Engine():
     
     def integrate(self, dt):
         # update necessary constraint matrices
-        self.constraint_collection.update_jacobians()
-        self.constraint_collection.update_forces_vector()
-        self.constraint_collection.update_constraint_constants()
-        mat = self.constraint_collection.matrices
+        self.constraint_handler.update_jacobians()
+        self.constraint_handler.update_forces_vector()
+        self.constraint_handler.update_constraint_constants()
+        mat = self.constraint_handler.matrices
 
         # update solver matrices as needed
         solver = self.integration_solver
@@ -89,9 +92,9 @@ class Engine():
 
     def correct_drift(self):
         # update necessary constraint matrices
-        self.correction_constraint_collection.update_jacobians()
-        self.correction_constraint_collection.update_constraint_errors()
-        mat = self.correction_constraint_collection.matrices
+        self.correction_constraint_handler.update_jacobians()
+        self.correction_constraint_handler.update_constraint_errors()
+        mat = self.correction_constraint_handler.matrices
 
         # update solver matrices as needed
         solver = self.drift_solver
@@ -113,25 +116,25 @@ class Engine():
             self.movables[i].theta += delta_q[3*i+2]
     
     def update_collision_constraints(self):
-        for c in self.constraint_collection.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
+        for c in self.constraint_handler.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
             if isinstance(c, constraint.ContactConstraint) or isinstance(c, constraint.FrictionConstraint):
-                self.constraint_collection.remove_constraint(c)
-        for c in self.correction_constraint_collection.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
+                self.constraint_handler.remove_constraint(c)
+        for c in self.correction_constraint_handler.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
             if isinstance(c, constraint.ContactConstraint) or isinstance(c, constraint.FrictionConstraint):
-                self.correction_constraint_collection.remove_constraint(c)
+                self.correction_constraint_handler.remove_constraint(c)
         
         self.collision_handler.update_collisions()
 
         for c in self.collision_handler.collisions: # TODO: the next loop needs to be separate from this one just so all the contact constraints are added before the friction ones; the construction of the matrices should be agnostic to this
             contact_constraint = constraint.ContactConstraint(c)
-            self.constraint_collection.add_constraint(contact_constraint)
-            self.correction_constraint_collection.add_constraint(constraint.ContactConstraint(c)) # TODO: should this be a copy of the constraint instead of the same one?
+            self.constraint_handler.add_constraint(contact_constraint)
+            self.correction_constraint_handler.add_constraint(constraint.ContactConstraint(c)) # TODO: should this be a copy of the constraint instead of the same one?
 
         for c in self.collision_handler.collisions:
             friction_constraint = constraint.FrictionConstraint(c)
-            self.constraint_collection.add_constraint(friction_constraint)
+            self.constraint_handler.add_constraint(friction_constraint)
 
-        self.n_friction_constraints = len(self.collision_handler.collisions) # TODO: should this variable be a part of the constraint collection?
+        self.n_friction_constraints = len(self.collision_handler.collisions) # TODO: should this variable be a part of the constraint handler?
 
     def step(self, dt): # Chapter 4.1 details the steps in this method
         # steps 1 and 2 happen outside this method
@@ -147,7 +150,7 @@ class Engine():
                 self.integrate(dt) # steps 3, 4, 5 and 6 # TODO: previously inserted contact and friction constraints are only considered in the first iteration
 
                 # step 7
-                
+
                 # reset contact and friction constraints
                 self.update_collision_constraints()
 
