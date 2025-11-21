@@ -33,9 +33,12 @@ if not shapes_debug:
 if shapes_debug:
     circle1 = example_bodies.wheel(cameras=[cam])
     circle1.x = 2
+    circle1.y = 1
     circle2 = example_bodies.wheel(cameras=[cam], radius=0.5)
     circle2.x = -2
+    circle2.y = 1
     rect1 = example_bodies.rectangle(cameras=[cam])
+    rect1.y = 2
     rect2 = example_bodies.rectangle(cameras=[cam])
     rect2.y = 1
 

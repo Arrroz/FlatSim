@@ -55,7 +55,7 @@ def leg_link(length=0.8, width=0.2, mass=1, moi=None, cameras: list[camera.Camer
 def ground(width=100, height=50, cameras: list[camera.Camera] = []):
     collidable_features = example_collidable_features.rectangle(anchor_x=-width/2, anchor_y=-height/2, width=width, height=height)
     body = collision.Collidable(collidable_features=collidable_features, movable=False)
-    body.y = -1.5 - height/2
+    body.y = -height/2
     
     for cam in cameras:
         example_sprites.rectangle(camera=cam, target=body, width=width, height=height, color=(100, 100, 100))

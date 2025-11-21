@@ -4,7 +4,7 @@ from robot import joint, robot
 from control import control
 from resources import example_bodies
 
-def monoped(cameras: list[camera.Camera] = [], ground_height=-1.5):
+def monoped(cameras: list[camera.Camera] = []):
     body_length = 1
     body_height = 1
     leg_link_length = 0.8
@@ -27,12 +27,12 @@ def monoped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     leg_controller = control.LegController([knee, hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     controller = control.BodyController(body, [leg_controller], kp=10, kd=10)
 
-    body_y = ground_height + foot_radius + 0.8 - hip.anchor_parent[1] + 1e-5
+    body_y = foot_radius + 0.8 - hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/3, -np.pi*2/3])
     
     return (model, controller)
 
-def wheeled_monoped(cameras: list[camera.Camera] = [], ground_height=-1.5):
+def wheeled_monoped(cameras: list[camera.Camera] = []):
     body_length = 1
     body_height = 1
     leg_link_length = 0.8
@@ -58,12 +58,12 @@ def wheeled_monoped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     leg_controller = control.LegController([ankle, knee, hip], foot_radius=wheel_radius, foot_anchor=np.array([0, 0]))
     controller = control.BodyController(body, [leg_controller])
 
-    body_y = ground_height + wheel_radius + 0.8*np.sqrt(2) - hip.anchor_parent[1] + 1e-5
+    body_y = wheel_radius + 0.8*np.sqrt(2) - hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, 0])
     
     return (model, controller)
 
-def biped(cameras: list[camera.Camera] = [], ground_height=-1.5):
+def biped(cameras: list[camera.Camera] = []):
     body_length = 2
     leg_link_length = 0.8
     body_mass = 10
@@ -93,12 +93,12 @@ def biped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     controller = control.BodyController(body, [lleg_controller, rleg_controller])
     
-    body_y = ground_height + foot_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
+    body_y = foot_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, -np.pi/4, np.pi/2])
     
     return (model, controller)
 
-def wheeled_biped(cameras: list[camera.Camera] = [], ground_height=-1.5):
+def wheeled_biped(cameras: list[camera.Camera] = []):
     body_length = 2
     leg_link_length = 0.8
     wheel_radius = 0.2
@@ -136,12 +136,12 @@ def wheeled_biped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     rleg_controller = control.LegController([right_ankle, right_knee, right_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
     controller = control.BodyController(body, [lleg_controller, rleg_controller])
 
-    body_y = ground_height + wheel_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
+    body_y = wheel_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, 0, -np.pi/4, np.pi/2, 0])
     
     return (model, controller)
 
-def triped(cameras: list[camera.Camera] = [], ground_height=-1.5):
+def triped(cameras: list[camera.Camera] = []):
     body_length = 2.5
     body_height = 0.8
     leg_link_length = 0.8
@@ -180,7 +180,7 @@ def triped(cameras: list[camera.Camera] = [], ground_height=-1.5):
     rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     controller = control.BodyController(body, [lleg_controller, mleg_controller, rleg_controller])
     
-    body_y = ground_height + foot_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
+    body_y = foot_radius + 0.8*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, np.pi/4, -np.pi/2, -np.pi/4, np.pi/2])
     
     return (model, controller)

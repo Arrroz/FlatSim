@@ -4,7 +4,7 @@ from graphics import shapes_sprite
 
 class Camera(window.Window):
 
-    def __init__(self, scale=100, offset_x=0, offset_y=0, *args, **kwargs):
+    def __init__(self, scale=100, offset_x=0, offset_y=1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.sprites = [] # type: list[shapes_sprite.Sprite]
