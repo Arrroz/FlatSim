@@ -1,6 +1,6 @@
 import pyglet
 import numpy as np
-from physics import engine, constraint, collision, solver, utils
+from physics import engine, constraint, utils
 from graphics import camera
 from resources import example_bodies, example_robots
 from misc import collision_visuals, external_force, reference
@@ -41,22 +41,26 @@ if shapes_debug:
 
 # engine stuff
 if shapes_debug:
-    # body_collection = collision.ColliqdableCollection([rect1, ground])
-    body_collection = collision.CollidableCollection([circle1, rect1, circle2, rect2, ground])
-    constraint_collection = constraint.ConstraintCollection([], body_collection)
-    correction_constraint_collection = constraint.ConstraintCollection([], body_collection)
+    # bodies = [rect1, ground]
+    bodies = [circle1, rect1, circle2, rect2, ground]
+    constraint_collection = constraint.ConstraintCollection([], bodies)
+    correction_constraint_collection = constraint.ConstraintCollection([], bodies)
 if not shapes_debug:
-    body_collection = collision.CollidableCollection(test_robot.links() + [ground])
-    body_collection.add_collision_ignore_set(test_robot.links())
-    constraint_collection = constraint.ConstraintCollection(test_robot.joints, body_collection)
-    correction_constraint_collection = constraint.ConstraintCollection(test_robot.joints.copy(), body_collection)
+    bodies = test_robot.links() + [ground]
+    constraint_collection = constraint.ConstraintCollection(test_robot.joints, bodies)
+    correction_constraint_collection = constraint.ConstraintCollection(test_robot.joints.copy(), bodies)
 
     if rolling_contact_joint:
-        body_collection.add_collision_ignore_set(test_robot.links() + [ground])
         constraint_collection.add_constraint(ground_joint)
         correction_constraint_collection.add_constraint(ground_joint)
 
-eng = engine.Engine(constraint_collection, correction_constraint_collection, solver.LemkeSolver(), solver.LemkeSolver())
+eng = engine.Engine(bodies, constraint_collection, correction_constraint_collection)
+
+if not shapes_debug:
+    if rolling_contact_joint:
+        eng.collision_handler.add_collision_ignore_set(test_robot.links() + [ground])
+    else:
+        eng.collision_handler.add_collision_ignore_set(test_robot.links())
 
 # miscellaneous
 ext_force = external_force.ExternalForce(camera=cam)
@@ -102,7 +106,7 @@ def update(dt):
         if controller_active:
             robot_controller.update(dt, ref.pose)
 
-    [b.apply_force(utils.gravity * b.mass) for b in body_collection.movables] # gravity
+    [b.apply_force(utils.gravity * b.mass) for b in bodies if b.movable] # gravity
     ext_force.update() # external force
 
     # step forward the simulation
@@ -117,7 +121,7 @@ def update(dt):
         t += dt
 
     # miscellaneous
-    # col_visuals.update(body_collection.collisions)
+    # col_visuals.update(eng.collision_handler.collisions)
 
 
 if __name__ == '__main__':

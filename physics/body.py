@@ -81,9 +81,3 @@ class Body():
     def apply_torque(self, t):
         self.rtorque += t
 
-
-class BodyCollection():
-
-    def __init__(self, bodies: list[Body]):
-        self.bodies = bodies
-        self.movables = [b for b in bodies if b.movable]

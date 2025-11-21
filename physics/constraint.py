@@ -26,20 +26,20 @@ class DataMatrices(): # used in the ConstraintCollection class to hold the matri
 
 class ConstraintCollection():
     
-    def __init__(self, constraints: list[Constraint], body_collection: body.BodyCollection):
+    def __init__(self, constraints: list[Constraint], bodies: list[body.Body]):
         self.constraints = constraints
-        self.body_collection = body_collection
+        self.bodies = [b for b in bodies if b.movable] # filter out fixed bodies
         self.matrices = DataMatrices()
 
         self.reset_matrices()
 
     def reset_matrices(self):
         mat = self.matrices
-        mat.M_dim = 3 * len(self.body_collection.movables)
+        mat.M_dim = 3 * len(self.bodies)
         mat.C_dim = sum([c.dimension for c in self.constraints])
         mat.n_equalities = sum([c.dimension for c in self.constraints if c.equality])
 
-        mat.M = np.diag(np.array([[b.mass, b.mass, b.moi] for b in self.body_collection.movables]).flatten()) # TODO: if Lagrangian dynamics are implemented, this matrix will have to be updated more often
+        mat.M = np.diag(np.array([[b.mass, b.mass, b.moi] for b in self.bodies]).flatten()) # TODO: if Lagrangian dynamics are implemented, this matrix will have to be updated more often
         mat.F = np.zeros((mat.M_dim,), dtype=float)
         mat.dq = np.zeros((mat.M_dim,), dtype=float)
 
@@ -49,7 +49,7 @@ class ConstraintCollection():
         
     def update_forces_vector(self):
         start_i = 0
-        for b in self.body_collection.movables:
+        for b in self.bodies:
             end_i = start_i + 3
             self.matrices.F[start_i:end_i] = b.rwrench
             start_i = end_i
@@ -60,7 +60,7 @@ class ConstraintCollection():
             end_i = start_i + c.dimension
             
             start_j = 0
-            for b in self.body_collection.movables:
+            for b in self.bodies:
                 end_j = start_j + 3
 
                 if b in c.bodies:

@@ -49,13 +49,21 @@ class Collidable(body.Body):
             f.update_pos()
 
 
-class CollidableCollection(body.BodyCollection):
+class Collision():
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, collidable1: Collidable, collidable2: Collidable, relative_pos1: np.ndarray, relative_pos2: np.ndarray, normal: np.ndarray, dist: float):
+        self.collidable1 = collidable1
+        self.collidable2 = collidable2
+        self.relative_pos1 = relative_pos1
+        self.relative_pos2 = relative_pos2
+        self.normal = normal
+        self.dist = dist
 
-        self.collidables = [b for b in self.bodies if hasattr(b, 'collidable_features')] # type: list[Collidable]
-        self.collisions = [] # type: list[Collision]
+
+class CollisionHandler():
+
+    def __init__(self, bodies: list[body.Body]):
+        self.collidables = [b for b in bodies if isinstance(b, Collidable)] # type: list[Collidable]
 
         self.collidable_feature_pairs = [] # type: list[tuple[CollidableFeature]]
         for i in range(len(self.collidables)-1):
@@ -67,6 +75,8 @@ class CollidableCollection(body.BodyCollection):
                 for f1 in collidable1.collidable_features:
                     for f2 in collidable2.collidable_features:
                         self.collidable_feature_pairs.append((f1, f2))
+        
+        self.collisions = [] # type: list[Collision]
 
     def update_collisions(self):
         for c in self.collidables:
@@ -74,17 +84,14 @@ class CollidableCollection(body.BodyCollection):
 
         self.collisions = []
         for f_pair in self.collidable_feature_pairs:
-            collision = f_pair[0].colliding(f_pair[1]) # TODO: should there be a "collision" or just keep info in the feature pair?; remove all comments from previous version once finished
+            collision = f_pair[0].colliding(f_pair[1])
             
-            if collision == None:
+            if collision == None or self.is_collision_duplicate(collision):
                 continue
 
-            if self.is_collision_duplicate(collision):
-                continue
-            
             self.collisions.append(collision)
-        
-    def is_collision_duplicate(self, collision):
+
+    def is_collision_duplicate(self, collision: Collision):
         for c in self.collisions:
             if (collision.collidable1 == c.collidable1 and collision.collidable2 == c.collidable2 and
                 np.all(collision.relative_pos1 == c.relative_pos1) and np.all(collision.relative_pos2 == c.relative_pos2)):
@@ -93,7 +100,7 @@ class CollidableCollection(body.BodyCollection):
         return False
     
     def add_collision_ignore_set(self, ignore_set: list[body.Body]):
-        ignore_set = [ign for ign in ignore_set if hasattr(ign, 'collidable_features')] # filter out bodies without collidable features
+        ignore_set = [ign for ign in ignore_set if isinstance(ign, Collidable)] # filter out bodies that aren't Collidables
 
         for i in range(len(ignore_set)-1):
             ign1 = ignore_set[i]
@@ -107,17 +114,6 @@ class CollidableCollection(body.BodyCollection):
                             self.collidable_feature_pairs.remove((f1, f2))
                         if (f2, f1) in self.collidable_feature_pairs:
                             self.collidable_feature_pairs.remove((f2, f1))
-
-
-class Collision():
-
-    def __init__(self, collidable1: Collidable, collidable2: Collidable, relative_pos1: np.ndarray, relative_pos2: np.ndarray, normal: np.ndarray, dist: float):
-        self.collidable1 = collidable1
-        self.collidable2 = collidable2
-        self.relative_pos1 = relative_pos1
-        self.relative_pos2 = relative_pos2
-        self.normal = normal
-        self.dist = dist
 
 
 # Beware of this file from this point on! It contains messy and undocumented... MATH!!!
