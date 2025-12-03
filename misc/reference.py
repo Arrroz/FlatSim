@@ -5,12 +5,13 @@ from resources import example_sprites
 
 class Reference():
 
-    def __init__(self, key_handler: key.KeyStateHandler, cameras: list[camera.Camera] = [], x=0, y=0, theta=0):
-        self.sprites = [example_sprites.reference(camera=cam, target=self) for cam in cameras]
+    def __init__(self, key_handler: key.KeyStateHandler):
         self.key_handler = key_handler
-        
+
         self.pose = np.zeros((3,))
         self.speed = 2
+        
+        self.sprite_generator = lambda: example_sprites.reference(target=self)
 
     @property
     def pos(self): return self.pose[:2]

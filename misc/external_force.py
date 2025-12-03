@@ -79,6 +79,7 @@ class ExternalForce():
 
         self.curr_body.apply_force(f, rotated_anchor)
 
-        self.sprite = self.sprite_function(self.camera, length=np.linalg.norm(t))
+        self.sprite = self.sprite_function(length=np.linalg.norm(t))
+        self.camera.add_sprite(self.sprite)
         self.sprite.pos = start
         self.sprite.theta = np.arctan2(t[1], t[0])

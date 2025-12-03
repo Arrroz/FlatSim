@@ -1,4 +1,4 @@
-from pyglet import window, graphics, gl, shapes
+from pyglet import window, graphics, gl
 import numpy as np
 from graphics import shapes_sprite
 

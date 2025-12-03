@@ -12,6 +12,8 @@ class Body():
         self.vel = np.zeros((3,))
         self.rwrench = np.zeros((3,))
 
+        self.sprite_generator = None
+
     @property
     def pos(self): return self.pose[:2]
     @pos.setter

@@ -19,10 +19,10 @@ key_handler = pyglet.window.key.KeyStateHandler()
 cam.push_handlers(key_handler)
 
 # setup bodies and constraints (constraints are in the test_robot)
-ground = example_bodies.ground(cameras=[cam])
+ground = example_bodies.ground()
 
 if not shapes_debug:
-    test_robot, robot_controller = example_robots.biped(cameras=[cam])
+    test_robot, robot_controller = example_robots.biped()
 
     if rolling_contact_joint:
         ground_joint = joint.RollingContactJoint(radius=0.2, normal=np.array([0,1]), # TODO: wheel radius and ground anchor are hard-coded
@@ -31,15 +31,15 @@ if not shapes_debug:
                                                 actuated=False)
 
 if shapes_debug:
-    circle1 = example_bodies.wheel(cameras=[cam])
+    circle1 = example_bodies.wheel()
     circle1.x = 2
     circle1.y = 1
-    circle2 = example_bodies.wheel(cameras=[cam], radius=0.5)
+    circle2 = example_bodies.wheel(radius=0.5)
     circle2.x = -2
     circle2.y = 1
-    rect1 = example_bodies.rectangle(cameras=[cam])
+    rect1 = example_bodies.rectangle()
     rect1.y = 2
-    rect2 = example_bodies.rectangle(cameras=[cam])
+    rect2 = example_bodies.rectangle()
     rect2.y = 1
 
 # engine stuff
@@ -65,7 +65,12 @@ if not shapes_debug:
 # miscellaneous
 ext_force = external_force.ExternalForce(camera=cam)
 col_visuals = collision_visuals.CollisionVisuals(camera=cam)
-ref = reference.Reference(key_handler=key_handler, cameras=[cam])
+ref = reference.Reference(key_handler=key_handler)
+
+# create sprites
+for b in bodies:
+    cam.add_sprite(b.sprite_generator())
+cam.add_sprite(ref.sprite_generator())
 
 if not shapes_debug:
     ref.x = test_robot.base.x

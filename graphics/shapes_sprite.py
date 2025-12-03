@@ -3,15 +3,12 @@ from pyglet import shapes
 
 class Sprite():
 
-    def __init__(self, shapes: list[shapes.ShapeBase], camera=None, target=None):
+    def __init__(self, shapes: list[shapes.ShapeBase], target=None):
         self.shapes = shapes
         self.target = target
 
         self._pose = np.zeros((3,))
         self._scale = 1
-
-        if camera != None:
-            camera.add_sprite(self)
     
     @property
     def pose(self):
