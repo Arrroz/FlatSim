@@ -7,10 +7,11 @@ class Sprite():
         self.shapes = shapes
         self.target = target
 
+        self._pose = np.zeros((3,))
+        self._scale = 1
+
         if camera != None:
             camera.add_sprite(self)
-
-        self._pose = np.zeros((3,))
     
     @property
     def pose(self):
@@ -40,3 +41,25 @@ class Sprite():
     def theta(self): return self.pose[2]
     @theta.setter
     def theta(self, value): self.pose[2] = value
+
+    @property
+    def scale(self):
+        return self._scale
+    @scale.setter
+    def scale(self, value):
+        for shape in self.shapes:
+            shape.anchor_x *= value/self._scale
+            shape.anchor_y *= value/self._scale
+            if isinstance(shape, shapes.Circle):
+                shape.radius *= value/self._scale
+            elif isinstance(shape, shapes.Rectangle):
+                shape.width *= value/self._scale
+                shape.height *= value/self._scale
+            elif isinstance(shape, shapes.Triangle):
+                shape.x *= value/self._scale
+                shape.y *= value/self._scale
+                shape.x2 *= value/self._scale
+                shape.y2 *= value/self._scale
+                shape.x3 *= value/self._scale
+                shape.y3 *= value/self._scale
+        self._scale = value

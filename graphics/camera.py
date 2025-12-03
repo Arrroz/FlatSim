@@ -32,14 +32,7 @@ class Camera(window.Window):
     @scale.setter
     def scale(self, value):
         for sprite in self.sprites:
-            for shape in sprite.shapes:
-                shape.anchor_x *= value/self.scale
-                shape.anchor_y *= value/self.scale
-                if shape.__class__ == shapes.Circle:
-                    shape.radius *= value/self.scale
-                elif shape.__class__ == shapes.Rectangle:
-                    shape.width *= value/self.scale
-                    shape.height *= value/self.scale
+            sprite.scale = value
         self._scale = value
     
     def add_sprite(self, sprite: shapes_sprite.Sprite):
@@ -48,6 +41,8 @@ class Camera(window.Window):
         self.switch_to()
         for s in sprite.shapes:
             s.batch = self.batch
+        
+        sprite.scale = self.scale
     
     def del_sprite(self, sprite: shapes_sprite.Sprite):
         self.sprites.remove(sprite)
@@ -59,8 +54,6 @@ class Camera(window.Window):
         if buttons & window.mouse.RIGHT:
             self.offset_x -= dx
             self.offset_y -= dy
-            # self.offset_x -= dx / self.scale
-            # self.offset_y -= dy / self.scale
     
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         self.scale += 0.1 * scroll_y * self.scale
@@ -74,8 +67,6 @@ class Camera(window.Window):
             for shape in sprite.shapes:
                 shape.x = sprite.x*self.scale - self.offset_x + self.width/2
                 shape.y = sprite.y*self.scale - self.offset_y + self.height/2
-                # shape.x = (sprite.x - self.offset_x) * self.scale + self.width/2
-                # shape.y = (sprite.y - self.offset_y) * self.scale + self.height/2
                 shape.rotation = -np.rad2deg(sprite.theta)
 
         self.batch.draw()

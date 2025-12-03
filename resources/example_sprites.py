@@ -2,9 +2,9 @@ from pyglet import shapes
 from graphics import camera, shapes_sprite
 
 def leg_link(camera: camera.Camera, target=None, length=0.8, width=0.2):
-    rectangle_length = length * camera.scale
-    rectangle_width = (width-0.05) * camera.scale
-    circle_radius = (width/2) * camera.scale
+    rectangle_length = length
+    rectangle_width = (width-0.05)
+    circle_radius = (width/2)
 
     rectangle = shapes.Rectangle(0, 0, rectangle_length, rectangle_width, color=(150, 0, 0))
     circle1 = shapes.Circle(0, 0, circle_radius, color=(100, 0, 200))
@@ -17,35 +17,27 @@ def leg_link(camera: camera.Camera, target=None, length=0.8, width=0.2):
     return shapes_sprite.Sprite([rectangle, circle1, circle2], camera=camera, target=target)
 
 def rectangle(camera: camera.Camera, target=None, width=2, height=0.6, color=(50, 100, 150)):
-    width *= camera.scale
-    height *= camera.scale
-
     rectangle = shapes.Rectangle(0, 0, width, height, color=color)
     rectangle.anchor_position = (width/2, height/2)
     
     return shapes_sprite.Sprite([rectangle], camera=camera, target=target)
 
 def robot_body(camera: camera.Camera, target=None, width=2, height=0.6, color=(50, 100, 150)):
-    width *= camera.scale
-    height *= camera.scale
-
     rectangle = shapes.Rectangle(0, 0, width, height, color=color)
-    dot = shapes.Circle(0, 0, 5, color=(150, 0, 0))
-    dash = shapes.Rectangle(0, 0, 10, 4, color=(150, 0, 0))
+    dot = shapes.Circle(0, 0, 0.05, color=(150, 0, 0))
+    dash = shapes.Rectangle(0, 0, 0.1, 0.04, color=(150, 0, 0))
 
     rectangle.anchor_position = (width/2, height/2)
-    dash.anchor_position = (0, 2)
+    dash.anchor_position = (0, 0.02)
 
     return shapes_sprite.Sprite([rectangle, dot, dash], camera=camera, target=target)
 
 def circle(camera: camera.Camera, target=None, radius=0.3):
-    radius *= camera.scale
     c = shapes.Circle(0, 0, radius, color=(100, 0, 200))
     c.anchor_position = (0, 0)
     return shapes_sprite.Sprite([c], camera=camera, target=target)
 
 def wheel(camera: camera.Camera, target=None, radius=0.3):
-    radius *= camera.scale
     line_length = 1.5*radius
     line_width = 0.1*radius
     
@@ -60,9 +52,9 @@ def wheel(camera: camera.Camera, target=None, radius=0.3):
     return shapes_sprite.Sprite([circle, line1, line2], camera=camera, target=target)
 
 def arrow(camera: camera.Camera, target=None, length=1):
-    triangle_base = 20
-    triangle_height = 20
-    rectangle_length = max(length*camera.scale-triangle_height, 0)
+    triangle_base = 0.2
+    triangle_height = 0.2
+    rectangle_length = max(length-triangle_height, 0)
     rectangle_width = triangle_base * 0.3
 
     rectangle = shapes.Rectangle(0, 0, rectangle_length, rectangle_width,
@@ -76,21 +68,21 @@ def arrow(camera: camera.Camera, target=None, length=1):
     return shapes_sprite.Sprite([rectangle, triangle], camera=camera, target=target)
 
 def point(camera: camera.Camera, target=None):
-    c = shapes.Circle(0, 0, 5, color=(200, 0, 0))
+    c = shapes.Circle(0, 0, 0.05, color=(200, 0, 0))
     return shapes_sprite.Sprite([c], camera=camera, target=target)
 
 def collision(camera: camera.Camera, target=None):
-    n = shapes.Rectangle(0, 0, 30, 4, color=(0, 150, 0))
-    p = shapes.Circle(0, 0, 5, color=(200, 0, 0))
+    n = shapes.Rectangle(0, 0, 0.3, 0.04, color=(0, 150, 0))
+    p = shapes.Circle(0, 0, 0.05, color=(200, 0, 0))
     
-    n.anchor_position = (0, 2)
+    n.anchor_position = (0, 0.02)
 
     return shapes_sprite.Sprite([n, p], camera=camera, target=target)
 
 def reference(camera: camera.Camera, target=None):
-    p = shapes.Circle(0, 0, 5, color=(0, 200, 0))
-    a = shapes.Rectangle(0, 0, 10, 4, color=(0, 200, 0))
+    p = shapes.Circle(0, 0, 0.05, color=(0, 200, 0))
+    a = shapes.Rectangle(0, 0, 0.1, 0.04, color=(0, 200, 0))
 
-    a.anchor_position = (0, 2)
+    a.anchor_position = (0, 0.02)
 
     return shapes_sprite.Sprite([p, a], camera=camera, target=target)
