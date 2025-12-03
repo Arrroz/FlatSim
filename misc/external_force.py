@@ -55,8 +55,8 @@ class ExternalForce():
         self.mouse = np.array([x, y])
 
     def _preprocess_coordinates(self, x, y):
-        x = (x + self.camera.offset_x - self.camera.width/2) / self.camera.scale
-        y = (y + self.camera.offset_y - self.camera.height/2) / self.camera.scale
+        x = (x + self.camera.offset_x - self.camera.width/2) / self.camera.zoom
+        y = (y + self.camera.offset_y - self.camera.height/2) / self.camera.zoom
         return (x, y)
     
     def update(self):

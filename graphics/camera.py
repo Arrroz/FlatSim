@@ -4,13 +4,13 @@ from graphics import shapes_sprite
 
 class Camera(window.Window):
 
-    def __init__(self, scale=100, offset_x=0, offset_y=100, *args, **kwargs):
+    def __init__(self, zoom=100, offset_x=0, offset_y=100, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.sprites = [] # type: list[shapes_sprite.Sprite]
         self.batch = graphics.Batch()
 
-        self.scale = scale
+        self.zoom = zoom
         self.offset_x = offset_x
         self.offset_y = offset_y
 
@@ -28,12 +28,12 @@ class Camera(window.Window):
         self._batch = value
     
     @property
-    def scale(self): return self._scale
-    @scale.setter
-    def scale(self, value):
+    def zoom(self): return self._zoom
+    @zoom.setter
+    def zoom(self, value):
         for sprite in self.sprites:
-            sprite.scale = value
-        self._scale = value
+            sprite.scale *= value/self._zoom
+        self._zoom = value
     
     def add_sprite(self, sprite: shapes_sprite.Sprite):
         self.sprites.append(sprite)
@@ -42,7 +42,7 @@ class Camera(window.Window):
         for s in sprite.shapes:
             s.batch = self.batch
         
-        sprite.scale = self.scale
+        sprite.scale *= self.zoom
     
     def del_sprite(self, sprite: shapes_sprite.Sprite):
         self.sprites.remove(sprite)
@@ -56,7 +56,10 @@ class Camera(window.Window):
             self.offset_y -= dy
     
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
-        self.scale += 0.1 * scroll_y * self.scale
+        zoom_increment = -0.1*scroll_y
+        self.zoom += zoom_increment * self.zoom
+        self.offset_x += zoom_increment * (self.offset_x + x - self.width/2)
+        self.offset_y += zoom_increment * (self.offset_y + y - self.height/2)
     
     def on_draw(self):
         self.switch_to()
@@ -65,8 +68,8 @@ class Camera(window.Window):
         # updating each shape's coordinates every iteration instead of when the sprite's coordinates change or when the camera moves is more expensive but much simpler
         for sprite in self.sprites:
             for shape in sprite.shapes:
-                shape.x = sprite.x*self.scale - self.offset_x + self.width/2
-                shape.y = sprite.y*self.scale - self.offset_y + self.height/2
+                shape.x = sprite.x*self.zoom - self.offset_x + self.width/2
+                shape.y = sprite.y*self.zoom - self.offset_y + self.height/2
                 shape.rotation = -np.rad2deg(sprite.theta)
 
         self.batch.draw()
