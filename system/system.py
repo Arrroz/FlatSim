@@ -6,6 +6,7 @@ class System():
     def __init__(self, base: body.Body, joints: list[joint.Joint]):
         self.base = base
         self.joints = joints
+        self.controller = None
 
     def set_state(self, x, y, theta, j_angles):
         self.base.x = x
