@@ -1,6 +1,6 @@
 import numpy as np
 from graphics import camera
-from robot import joint, robot
+from system import joint, system
 from control import control
 from resources import example_bodies
 
@@ -23,7 +23,7 @@ def monoped():
     
     foot_radius = 0.1 # TODO: foot_radius is hard coded from leg_link standard width
     
-    model = robot.Robot(body, [hip, knee])
+    model = system.System(body, [hip, knee])
     leg_controller = control.LegController([knee, hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     controller = control.BodyController(body, [leg_controller], kp=10, kd=10)
 
@@ -54,7 +54,7 @@ def wheeled_monoped():
     ankle = joint.RJoint(shin, np.array([leg_link_length/2, 0]),
                          wheel, np.array([0, 0]))
     
-    model = robot.Robot(body, [hip, knee, ankle])
+    model = system.System(body, [hip, knee, ankle])
     leg_controller = control.LegController([ankle, knee, hip], foot_radius=wheel_radius, foot_anchor=np.array([0, 0]))
     controller = control.BodyController(body, [leg_controller])
 
@@ -88,7 +88,7 @@ def biped():
     
     foot_radius = 0.1 # TODO: foot_radius is hard coded from leg_link standard width
 
-    model = robot.Robot(body, [left_hip, left_knee, right_hip, right_knee])
+    model = system.System(body, [left_hip, left_knee, right_hip, right_knee])
     lleg_controller = control.LegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     controller = control.BodyController(body, [lleg_controller, rleg_controller])
@@ -131,7 +131,7 @@ def wheeled_biped():
                               right_wheel, np.array([0, 0]),
                               offset=np.pi) # TODO: check this (added recently)
     
-    model = robot.Robot(body, [left_hip, left_knee, left_ankle, right_hip, right_knee, right_ankle])
+    model = system.System(body, [left_hip, left_knee, left_ankle, right_hip, right_knee, right_ankle])
     lleg_controller = control.LegController([left_ankle, left_knee, left_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
     rleg_controller = control.LegController([right_ankle, right_knee, right_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
     controller = control.BodyController(body, [lleg_controller, rleg_controller])
@@ -174,7 +174,7 @@ def triped():
     
     foot_radius = 0.1 # TODO: foot_radius is hard coded from leg_link standard width
 
-    model = robot.Robot(body, [left_hip, left_knee, middle_hip, middle_knee, right_hip, right_knee])
+    model = system.System(body, [left_hip, left_knee, middle_hip, middle_knee, right_hip, right_knee])
     lleg_controller = control.LegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     mleg_controller = control.LegController([middle_knee, middle_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
     rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))

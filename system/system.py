@@ -1,7 +1,7 @@
-from robot import joint
+from system import joint
 from physics import body
 
-class Robot():
+class System():
 
     def __init__(self, base: body.Body, joints: list[joint.Joint]):
         self.base = base

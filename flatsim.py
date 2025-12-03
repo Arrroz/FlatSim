@@ -1,10 +1,10 @@
 import pyglet
 import numpy as np
-from physics import engine, constraint, utils
+from physics import engine, utils
 from graphics import camera
 from resources import example_bodies, example_robots
 from misc import collision_visuals, external_force, reference
-from robot import joint
+from system import joint
 
 shapes_debug = False # debugging with random shapes; TODO: remove once done
 rolling_contact_joint = False # TODO: remove once unnecessary

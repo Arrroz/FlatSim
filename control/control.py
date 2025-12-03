@@ -1,6 +1,6 @@
 import numpy as np
 from physics import utils, body
-from robot import joint
+from system import joint
 
 class LegController():
 
