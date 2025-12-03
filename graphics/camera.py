@@ -4,7 +4,7 @@ from graphics import shapes_sprite
 
 class Camera(window.Window):
 
-    def __init__(self, scale=100, offset_x=0, offset_y=1, *args, **kwargs):
+    def __init__(self, scale=100, offset_x=0, offset_y=100, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
         self.sprites = [] # type: list[shapes_sprite.Sprite]
@@ -57,8 +57,10 @@ class Camera(window.Window):
 
     def on_mouse_drag(self, x, y, dx, dy, buttons, modifiers):
         if buttons & window.mouse.RIGHT:
-            self.offset_x -= dx / self.scale
-            self.offset_y -= dy / self.scale
+            self.offset_x -= dx
+            self.offset_y -= dy
+            # self.offset_x -= dx / self.scale
+            # self.offset_y -= dy / self.scale
     
     def on_mouse_scroll(self, x, y, scroll_x, scroll_y):
         self.scale += 0.1 * scroll_y * self.scale
@@ -70,8 +72,10 @@ class Camera(window.Window):
         # updating each shape's coordinates every iteration instead of when the sprite's coordinates change or when the camera moves is more expensive but much simpler
         for sprite in self.sprites:
             for shape in sprite.shapes:
-                shape.x = (sprite.x - self.offset_x) * self.scale + self.width/2
-                shape.y = (sprite.y - self.offset_y) * self.scale + self.height/2
+                shape.x = sprite.x*self.scale - self.offset_x + self.width/2
+                shape.y = sprite.y*self.scale - self.offset_y + self.height/2
+                # shape.x = (sprite.x - self.offset_x) * self.scale + self.width/2
+                # shape.y = (sprite.y - self.offset_y) * self.scale + self.height/2
                 shape.rotation = -np.rad2deg(sprite.theta)
 
         self.batch.draw()

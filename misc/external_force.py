@@ -32,15 +32,13 @@ class ExternalForce():
                     self.curr_body = sprite.target
 
                     x, y = self._preprocess_coordinates(x, y)
-                    p  = np.array([x, y])
-                    self.mouse = p
+                    self.mouse = np.array([x, y])
 
-                    p -= self.curr_body.pos
                     cos_theta = np.cos(self.curr_body.theta)
                     sin_theta = np.sin(self.curr_body.theta)
                     rot_mat = np.array([[cos_theta, sin_theta],
                                         [-sin_theta, cos_theta]])
-                    self.anchor = rot_mat @ p
+                    self.anchor = rot_mat @ (self.mouse - self.curr_body.pos)
                     return
 
     def on_mouse_release(self, x, y, button, modifiers):
@@ -57,8 +55,8 @@ class ExternalForce():
         self.mouse = np.array([x, y])
 
     def _preprocess_coordinates(self, x, y):
-        x = (x - self.camera.width/2) / self.camera.scale + self.camera.offset_x
-        y = (y - self.camera.height/2) / self.camera.scale + self.camera.offset_y
+        x = (x + self.camera.offset_x - self.camera.width/2) / self.camera.scale
+        y = (y + self.camera.offset_y - self.camera.height/2) / self.camera.scale
         return (x, y)
     
     def update(self):
