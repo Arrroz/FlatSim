@@ -10,13 +10,16 @@ class Engine():
         self.constraints = constraints
         self.integration_solver = integration_solver
         self.drift_solver = drift_solver
+
+        self.reset()
         
+    def reset(self):
         self.movables = [b for b in self.bodies if b.movable]
 
-        self.constraint_handler = constraint.ConstraintHandler(constraints, bodies)
-        self.correction_constraint_handler = constraint.ConstraintHandler(constraints.copy(), bodies)
+        self.constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
+        self.correction_constraint_handler = constraint.ConstraintHandler(self.constraints.copy(), self.bodies)
 
-        self.collision_handler = collision.CollisionHandler(bodies)
+        self.collision_handler = collision.CollisionHandler(self.bodies)
 
         self.reset_solver_matrices()
 

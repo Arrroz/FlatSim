@@ -21,6 +21,8 @@ class System():
         for j in self.joints:
             if not j.child in links:
                 links.append(j.child)
+            if not j.parent in links:
+                links.append(j.parent)
         
         return links
 
