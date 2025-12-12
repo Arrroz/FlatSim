@@ -8,16 +8,15 @@ np.set_printoptions(precision=2, suppress=True)
 scene = Scene()
 
 ground = example_bodies.ground()
-scene.bodies.append(ground)
+scene.add_body(ground)
 
 robot = example_robots.biped()
-scene.systems.append(robot)
-
 # ground_joint = joint.RollingContactJoint(radius=0.2, normal=np.array([0,1]), # TODO: wheel radius and ground anchor are hard-coded
 #                                          parent=ground, anchor_parent=np.array([0, 25]),
 #                                          child=robot.joints[-1].child, anchor_child=np.array([0, 0]),
 #                                          actuated=False)
 # robot.joints.append(ground_joint)
+scene.add_system(robot)
 
 scene.add_reference()
 scene.reference.pose = robot.base.pose.copy()

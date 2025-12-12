@@ -1,5 +1,5 @@
 import pyglet
-from physics import engine, utils
+from physics import engine, body, utils
 from graphics import camera
 from system import system
 from misc import external_force, reference, collision_visuals
@@ -40,21 +40,6 @@ class Scene:
     def run(self, update_callback):
         self.update_callback = update_callback
 
-        # simulation setup
-        for s in self.systems:
-            self.bodies += [l for l in s.links() if not (l in self.bodies)]
-            self.constraints += [j for j in s.joints if not (j in self.constraints)]
-        self.engine.reset()
-        for s in self.systems:
-            self.engine.collision_handler.add_collision_ignore_set(s.links())
-
-        # rendering setup
-        for b in self.bodies:
-            self.camera.add_sprite(b.sprite_generator())
-        if self.reference:
-            self.camera.add_sprite(self.reference.sprite_generator())
-
-        # run scene
         pyglet.clock.schedule_interval(self.update, 1/120)
         pyglet.app.run()
 
@@ -69,6 +54,22 @@ class Scene:
         
         self.update_callback(dt)
 
+    def add_body(self, body: body.Body):
+        if body in self.bodies:
+            return
+        
+        self.bodies.append(body)
+        self.camera.add_sprite(body.sprite_generator())
+        self.engine.reset()
+    
+    def add_system(self, system: system.System):
+        for l in system.links():
+            self.add_body(l)
+        self.constraints += [j for j in system.joints if not (j in self.constraints)]
+
+        self.engine.reset()
+        self.engine.collision_handler.add_collision_ignore_set(system.links())
+
     def apply_gravity(self, acc=utils.gravity):
         for b in self.bodies:
             if b.movable:
@@ -80,6 +81,7 @@ class Scene:
     def add_reference(self):
         if self.reference == None:
             self.reference = reference.Reference(self._key_handler)
+            self.camera.add_sprite(self.reference.sprite_generator())
 
     def show_collisions(self):
         self._collision_visuals.update(self.engine.collision_handler.collisions)
