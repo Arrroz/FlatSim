@@ -59,7 +59,7 @@ class ExternalForce():
         y = (y + self.camera.offset_y - self.camera.height/2) / self.camera.zoom
         return (x, y)
     
-    def update(self):
+    def apply(self):
         if self.sprite != None:
             self.camera.del_sprite(self.sprite)
             self.sprite = None

@@ -17,7 +17,7 @@ class Scene:
         self.camera.push_handlers(self._key_handler)
 
         # miscelaneous
-        self._external_force = external_force.ExternalForce(self.camera)
+        self.external_force = external_force.ExternalForce(self.camera)
         self._collision_visuals = collision_visuals.CollisionVisuals(self.camera)
         self.reference = None
 
@@ -58,8 +58,11 @@ class Scene:
         if body in self.bodies:
             return
         
+        sprite = body.sprite_generator()
+        self.camera.add_sprite(sprite)
+        sprite.target = body
+
         self.bodies.append(body)
-        self.camera.add_sprite(body.sprite_generator())
         self.engine.reset()
     
     def add_system(self, system: system.System):
@@ -75,13 +78,12 @@ class Scene:
             if b.movable:
                 b.apply_force(b.mass * acc)
 
-    def apply_external_force(self):
-        self._external_force.update()
-
     def add_reference(self):
-        if self.reference == None:
-            self.reference = reference.Reference(self._key_handler)
-            self.camera.add_sprite(self.reference.sprite_generator())
+        if self.reference != None:
+            return
+        
+        self.reference = reference.Reference(self._key_handler)
+        self.camera.add_sprite(self.reference.sprite_generator())
 
     def show_collisions(self):
         self._collision_visuals.update(self.engine.collision_handler.collisions)

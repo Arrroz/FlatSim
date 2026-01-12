@@ -1,5 +1,6 @@
 import numpy as np
 from scene.scene import Scene
+from scene.record import Record
 from resources import example_bodies, example_robots
 # from system import joint
 
@@ -21,27 +22,25 @@ scene.add_system(robot)
 scene.add_reference()
 scene.reference.pose = robot.base.pose.copy()
 
-data = np.empty(shape=(0,7))
-t = 0
-
+record = Record()
+record.track("ground", ground, lambda: None)
+record.track("robot", robot, lambda: [l.pose for l in robot.links()])
+record.track("reference", None, lambda: scene.reference.pose)
+record.track("force", None, lambda: (scene.external_force.curr_body, scene.external_force.mouse, scene.external_force.anchor))
+record.track("jacobian", None, lambda: robot.controller.leg_controllers[0].Jt[-1])
 
 def update(dt):
-    global data, t
+    record.note(dt)
 
     scene.reference.update(dt)
     robot.controller.update(dt, scene.reference.pose)
 
     scene.apply_gravity()
-    scene.apply_external_force()
+    scene.external_force.apply()
 
     scene.engine.step(dt)
 
-    # x, y, theta, x_ref, y_ref, theta_ref
-    data = np.append(data, [[t, robot.base.x, robot.base.y, robot.base.theta, scene.reference.x, scene.reference.y, scene.reference.theta]], axis=0)
-    t += dt
-
-
 scene.run(update)
 
-np.savetxt("data/test.csv", data, delimiter=',')
+record.save("data/test.pkl")
 
