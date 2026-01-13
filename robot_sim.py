@@ -23,10 +23,7 @@ scene.add_reference()
 scene.reference.pose = robot.base.pose.copy()
 
 record = Record()
-record.track("ground", ground, lambda: None)
-record.track("robot", robot, lambda: [l.pose for l in robot.links()])
-record.track("reference", None, lambda: scene.reference.pose)
-record.track("force", None, lambda: (scene.external_force.curr_body, scene.external_force.mouse, scene.external_force.anchor))
+record.track_scene(scene)
 record.track("jacobian", None, lambda: robot.controller.leg_controllers[0].Jt[-1])
 
 def update(dt):
