@@ -4,17 +4,23 @@ from scene.scene import Scene
 
 class Record:
 
-    def __init__(self, filepath: str = None):
+    def __init__(self, scene: Scene, filepath: str = None):
+        self.scene = scene
+
         self.objects = {}
         self.getters = {}
         self.frames = {}
 
         self.t = 0
 
+        self.track_scene()
+
         if filepath != None:
             with open(filepath, "rb") as f:
                 self.objects, self.frames = dill.load(f)
-
+                self.getters = {}
+                self.load_scene()
+    
     def track(self, key: str, obj, data_getter):
         self.objects[key] = copy.deepcopy(obj)
         self.getters[key] = data_getter
@@ -42,30 +48,30 @@ class Record:
         
         return self.frames[t]
 
-    def track_scene(self, scene: Scene):
-        self.track("bodies", scene.bodies, lambda: [b.pose for b in scene.bodies])
-        self.track("reference", None, lambda: scene.reference.pose)
-        self.track("external force", None, lambda: (scene.external_force.curr_body, scene.external_force.mouse, scene.external_force.anchor))
+    def track_scene(self):
+        self.track("bodies", self.scene.bodies, lambda: [b.pose for b in self.scene.bodies])
+        self.track("reference", None, lambda: self.scene.reference.pose)
+        self.track("external force", None, lambda: (self.scene.external_force.curr_body, self.scene.external_force.mouse, self.scene.external_force.anchor))
 
-    def load_scene(self, scene: Scene):
+    def load_scene(self):
         if "bodies" in self.objects.keys():
             for b in self.objects["bodies"]:
-                scene.add_body(b)
+                self.scene.add_body(b)
 
         if "reference" in self.objects.keys():
-            scene.add_reference()
+            self.scene.add_reference()
         
-        self.update_scene(scene, self.frames[0])
+        self.update_scene(self.frames[0])
 
-    def update_scene(self, scene: Scene, frame: dict):
+    def update_scene(self, frame: dict):
         if "bodies" in frame.keys():
-            for b, p in zip(scene.bodies, frame["bodies"]):
+            for b, p in zip(self.scene.bodies, frame["bodies"]):
                 b.pose = p
         
         if "reference" in frame.keys():
-            scene.reference.pose = frame["reference"]
+            self.scene.reference.pose = frame["reference"]
 
         if "external force" in frame.keys():
-            scene.external_force.curr_body, scene.external_force.mouse, scene.external_force.anchor = frame["external force"]
-            scene.external_force.apply()
+            self.scene.external_force.curr_body, self.scene.external_force.mouse, self.scene.external_force.anchor = frame["external force"]
+            self.scene.external_force.apply()
 
