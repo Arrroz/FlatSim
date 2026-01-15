@@ -14,6 +14,7 @@ class Scene:
         # window
         self.camera = camera.Camera(width=800, height=600)
         self._key_handler = pyglet.window.key.KeyStateHandler()
+        self.camera.push_handlers(self.on_key_press)
         self.camera.push_handlers(self._key_handler)
 
         # miscelaneous
@@ -37,6 +38,11 @@ class Scene:
     @constraints.setter
     def constraints(self, value): self.engine.constraints = value
 
+    def on_key_press(self, symbol, modifiers):
+        match symbol:
+            case pyglet.window.key.P:
+                self.play = not self.play
+
     def run(self, update_callback):
         self.update_callback = update_callback
 
@@ -44,11 +50,6 @@ class Scene:
         pyglet.app.run()
 
     def update(self, dt):
-        if self._key_handler[pyglet.window.key.Q]:
-            self.play = True
-        if self._key_handler[pyglet.window.key.W]:
-            self.play = False
-
         if not self.play:
             return
         
@@ -81,7 +82,7 @@ class Scene:
     def add_reference(self):
         if self.reference != None:
             return
-        
+
         self.reference = reference.Reference(self._key_handler)
         self.camera.add_sprite(self.reference.sprite_generator())
 

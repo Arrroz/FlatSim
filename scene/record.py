@@ -1,5 +1,6 @@
 import dill
 import copy
+from pyglet.window import key
 from scene.scene import Scene
 
 class Record:
@@ -9,44 +10,90 @@ class Record:
 
         self.objects = {}
         self.getters = {}
-        self.frames = {}
+        self.frames = []
 
         self.t = 0
+        self.playback_speed = 0
+        self.curr_frame_id = 0
 
+        self.track("time", None, lambda: self.t)
         self.track_scene()
 
         if filepath != None:
-            with open(filepath, "rb") as f:
-                self.objects, self.frames = dill.load(f)
-                self.getters = {}
-                self.load_scene()
+            self.load(filepath)
+    
+    def on_key_press(self, symbol, modifiers):
+        match symbol:
+            case key.P:
+                if self.playback_speed == 0:
+                    self.playback_speed = 1
+                else:
+                    self.playback_speed = 0
+            case key.UP:
+                if self.playback_speed < 2:
+                    self.playback_speed += 0.5
+            case key.DOWN:
+                if self.playback_speed > -2:
+                    self.playback_speed -= 0.5
+            case key.RIGHT:
+                if self.playback_speed == 0:
+                    self.curr_frame_id += 1
+                    self.t = self.frames[self.curr_frame_id]["time"]
+            case key.LEFT:
+                if self.playback_speed == 0:
+                    self.curr_frame_id -= 1
+                    self.t = self.frames[self.curr_frame_id]["time"]
     
     def track(self, key: str, obj, data_getter):
         self.objects[key] = copy.deepcopy(obj)
         self.getters[key] = data_getter
 
     def note(self, dt):
-        self.frames[self.t] = {}
+        new_frame = {}
         for key, getter in self.getters.items():
-            self.frames[self.t][key] = copy.deepcopy(getter())
+            new_frame[key] = copy.deepcopy(getter())
+        self.frames.append(new_frame)
 
         self.t += dt
     
     def save(self, filepath: str):
         with open(filepath, "wb") as f:
             dill.dump((self.objects, self.frames), f)
+    
+    def load(self, filepath: str):
+        with open(filepath, "rb") as f:
+            self.objects, self.frames = dill.load(f)
+            self.getters = {}
+
+            self.curr_frame_id = 0
+
+            self.load_scene()
+            
+            self.scene.camera.remove_handlers(self.scene)
+            self.scene.camera.push_handlers(self.on_key_press)
+
+            self.scene.play = True
 
     def get_next_frame(self, dt):
         if len(self.frames) == 0:
             raise IndexError("The Record has no frames")
-        
-        for t in self.frames.keys():
-            if t >= self.t:
-                break
 
-        self.t += dt
+        if self.curr_frame_id >= len(self.frames)-1 and self.playback_speed > 0:
+            self.playback_speed = 0
+        elif self.curr_frame_id <= 0 and self.playback_speed < 0:
+            self.playback_speed = 0
         
-        return self.frames[t]
+        if self.playback_speed == 0:
+            return self.frames[self.curr_frame_id]
+        
+        self.t += self.playback_speed * dt
+
+        for i, f in enumerate(self.frames):
+            if f["time"] >= self.t:
+                self.curr_frame_id = i
+                break
+        
+        return self.frames[self.curr_frame_id]
 
     def track_scene(self):
         self.track("bodies", self.scene.bodies, lambda: [b.pose for b in self.scene.bodies])
