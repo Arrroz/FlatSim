@@ -87,6 +87,8 @@ class Record:
             return self.frames[self.curr_frame_id]
         
         self.t += self.playback_speed * dt
+        if self.t > self.frames[-1]["time"]:
+            self.t = self.frames[-1]["time"]
 
         for i, f in enumerate(self.frames):
             if f["time"] >= self.t:
