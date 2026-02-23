@@ -23,16 +23,23 @@ scene.add_reference()
 scene.reference.pose = robot.base.pose.copy()
 
 record = Record(scene)
-record.track("jacobian", None, lambda: robot.controller.leg_controllers[0].chain_frames_jacobians[-1])
+record.track("jacobian_left", None, lambda: np.vstack((
+    robot.controller.leg_controllers[0].chain_frames_jacobians[-1],
+    robot.controller.leg_controllers[0].rotation_jacobians[-1]
+)))
+record.track("jacobian_right", None, lambda: np.vstack((
+    robot.controller.leg_controllers[1].chain_frames_jacobians[-1],
+    robot.controller.leg_controllers[1].rotation_jacobians[-1]
+)))
 
 def update(dt):
-    record.note(dt)
-
     scene.reference.update(dt)
     robot.controller.update(dt, scene.reference.pose)
 
     scene.apply_gravity()
     scene.external_force.apply()
+
+    record.note(dt)
 
     scene.engine.step(dt)
 
