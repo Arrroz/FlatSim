@@ -1,23 +1,14 @@
 import numpy as np
 from physics import utils, body
 from control.leg_controllers import SupportingLegController
+from control.pid import PIDController
 
 class BodyController():
 
-    def __init__(self, body: body.Body, leg_controllers: list[SupportingLegController], kp=10, kd=10):
+    def __init__(self, body: body.Body, leg_controllers: list[SupportingLegController], kp=10, ki=0.1, kd=10):
         self.body = body
         self.leg_controllers = leg_controllers
-        self.kp = kp
-        self.kd = kd
-        self.int_error = np.zeros((3,)) # TODO: testing integral component
         
-    def update(self, dt, ref, dref=np.zeros((3,))):
-        # Find pose and velocity errors
-        error = ref - self.body.pose
-        derror = dref - self.body.vel
-        # TODO: testing integral component
-        self.int_error += error * dt
-        # ki = 0.1
         z = 2
         kp = 3*z*z
         ki = z*z*z
@@ -27,10 +18,15 @@ class BodyController():
         # kp = k*2*z
         # ki = k*z*z
         # kd = k
-
-        # Get reference acceleration as the output of a PD controller
-        # acc_ref = self.kp * error + self.kd * derror + ki * self.int_error
-        acc_ref = kp * error + ki * self.int_error + kd * derror
+        self.pid = PIDController(kp=kp, ki=ki, kd=kd)
+        
+    def update(self, dt, ref, dref=np.zeros((3,))):
+        # Find pose and velocity errors
+        error = ref - self.body.pose
+        derror = dref - self.body.vel
+        
+        # Get reference acceleration as the output of a PID controller
+        acc_ref = self.pid.update(dt, error, derror)
 
         # Get required wrench as a function of the reference acceleration
         wrench_ref = (np.diag([self.body.mass, self.body.mass, self.body.moi]) @
@@ -70,23 +66,19 @@ class BodyController():
 
 class WholeBodyController():
 
-    def __init__(self, body: body.Body, leg_controllers: list[SupportingLegController], kp=50, kd=20):
+    def __init__(self, body: body.Body, leg_controllers: list[SupportingLegController], kp=50, ki=10, kd=20):
         self.body = body
         self.leg_controllers = leg_controllers
-        self.kp = kp
-        self.kd = kd
-        self.int_error = np.zeros((3,)) # TODO: testing integral component
+
+        self.pid = PIDController(kp=kp, ki=ki, kd=kd)
         
     def update(self, dt, ref, dref=np.zeros((3,))):
         # Find pose and velocity errors
         error = ref - self.body.pose
         derror = dref - self.body.vel
-        # TODO: testing integral component
-        self.int_error += error * dt
-        ki = 10
-
-        # Get reference acceleration as the output of a PD controller
-        acc_ref = self.kp * error + self.kd * derror + ki * self.int_error
+        
+        # Get reference acceleration as the output of a PID controller
+        acc_ref = self.pid.update(dt, error, derror)
 
         # Solve the leg influence distribution problem
         lsMat = np.zeros((3,0))
