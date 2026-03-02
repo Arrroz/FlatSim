@@ -1,6 +1,7 @@
 import numpy as np
 from system import joint, system
-from control import control
+from control.leg_controllers import SupportingLegController
+from control.body_controllers import BodyController
 from resources import example_bodies
 
 def monoped():
@@ -22,8 +23,8 @@ def monoped():
                         shin, np.array([-leg_link_length/2, 0]))
     
     model = system.System(body, [hip, knee])
-    leg_controller = control.LegController([knee, hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    model.controller = control.BodyController(body, [leg_controller], kp=10, kd=10)
+    leg_controller = SupportingLegController([knee, hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
+    model.controller = BodyController(body, [leg_controller], kp=10, kd=10)
 
     body_y = foot_radius + leg_link_length*np.sqrt(2) - hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2])
@@ -53,8 +54,8 @@ def wheeled_monoped():
                          wheel, np.array([0, 0]))
     
     model = system.System(body, [hip, knee, ankle])
-    leg_controller = control.LegController([ankle, knee, hip], foot_radius=wheel_radius, foot_anchor=np.array([0, 0]))
-    model.controller = control.BodyController(body, [leg_controller])
+    leg_controller = SupportingLegController([ankle, knee, hip], foot_radius=wheel_radius, foot_anchor=np.array([0, 0]))
+    model.controller = BodyController(body, [leg_controller])
 
     body_y = wheel_radius + leg_link_length*np.sqrt(2) - hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, 0])
@@ -86,9 +87,9 @@ def biped():
                              right_shin, np.array([-leg_link_length/2, 0]))
     
     model = system.System(body, [left_hip, left_knee, right_hip, right_knee])
-    lleg_controller = control.LegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    model.controller = control.BodyController(body, [lleg_controller, rleg_controller])
+    lleg_controller = SupportingLegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
+    rleg_controller = SupportingLegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
+    model.controller = BodyController(body, [lleg_controller, rleg_controller])
     
     body_y = foot_radius + leg_link_length*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, -np.pi/4, np.pi/2])
@@ -129,9 +130,9 @@ def wheeled_biped():
                               offset=np.pi) # TODO: check this (added recently)
     
     model = system.System(body, [left_hip, left_knee, left_ankle, right_hip, right_knee, right_ankle])
-    lleg_controller = control.LegController([left_ankle, left_knee, left_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
-    rleg_controller = control.LegController([right_ankle, right_knee, right_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
-    model.controller = control.BodyController(body, [lleg_controller, rleg_controller])
+    lleg_controller = SupportingLegController([left_ankle, left_knee, left_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
+    rleg_controller = SupportingLegController([right_ankle, right_knee, right_hip], foot_radius=wheel_radius, foot_anchor=np.array([leg_link_length/2, 0])) # TODO: shouldn't the foot anchor be 0?
+    model.controller = BodyController(body, [lleg_controller, rleg_controller])
 
     body_y = wheel_radius + leg_link_length*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, 0, -np.pi/4, np.pi/2, 0])
@@ -171,10 +172,10 @@ def triped():
                              right_shin, np.array([-leg_link_length/2, 0]))
     
     model = system.System(body, [left_hip, left_knee, middle_hip, middle_knee, right_hip, right_knee])
-    lleg_controller = control.LegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    mleg_controller = control.LegController([middle_knee, middle_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    rleg_controller = control.LegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
-    model.controller = control.BodyController(body, [lleg_controller, mleg_controller, rleg_controller])
+    lleg_controller = SupportingLegController([left_knee, left_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
+    mleg_controller = SupportingLegController([middle_knee, middle_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
+    rleg_controller = SupportingLegController([right_knee, right_hip], foot_radius=foot_radius, foot_anchor=np.array([leg_link_length/2, 0]))
+    model.controller = BodyController(body, [lleg_controller, mleg_controller, rleg_controller])
     
     body_y = foot_radius + leg_link_length*np.sqrt(2) - left_hip.anchor_parent[1] + 1e-5
     model.set_state(0, body_y, 0, [np.pi/4, -np.pi/2, np.pi/4, -np.pi/2, -np.pi/4, np.pi/2])
