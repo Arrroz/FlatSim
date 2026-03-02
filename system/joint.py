@@ -15,16 +15,36 @@ class Joint(constraint.Constraint):
         
         self.bodies = [parent, child]
         self.equality = True
+    
+    def apply_effort(self, value):
+        pass
+
+    def get_angle(self):
+        pass
+
+    def set_angle(self, value):
+        pass
 
 
 class RJoint(Joint):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, min_torque=float("-inf"), max_torque=float("inf"), **kwargs):
         super().__init__(*args, **kwargs)
 
         self.dimension = 2
 
+        self.min_torque = min_torque
+        self.max_torque = max_torque
+
         self.set_angle(0)
+    
+    def apply_effort(self, value):
+        if not self.actuated: return
+
+        value = min(self.max_torque, max(self.min_torque, value))
+
+        self.parent.apply_torque(-value)
+        self.child.apply_torque(value)
 
     def get_angle(self):
         return self.child.theta - self.parent.theta - self.offset

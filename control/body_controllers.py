@@ -112,6 +112,5 @@ class WholeBodyController():
         i = 0
         for lc in self.leg_controllers:
             for j in lc.joints:
-                j.parent.apply_torque(torques[i])
-                j.child.apply_torque(-torques[i])
+                j.apply_effort(-torques[i])
                 i += 1

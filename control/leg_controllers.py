@@ -132,7 +132,6 @@ class SupportingLegController():
         
         Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
         for i in range(len(self.joints)):
-            self.joints[i].parent.apply_torque(-Fu[i+1])
-            self.joints[i].child.apply_torque(Fu[i+1])
+            self.joints[i].apply_effort(Fu[i+1])
 
         # print(Fu) # TODO: only here for debugging
