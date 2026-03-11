@@ -32,14 +32,14 @@ class ArmController():
 
         self.dq = np.zeros((self.n_joints,))
 
-        self.Jr = [np.zeros((1, self.n_joints)) for i in range(self.n_links)]
-        self.dJr = [np.zeros((1, self.n_joints)) for i in range(self.n_links)]
+        self.Jp = [np.zeros((2, self.n_joints)) for _ in range(self.n_links)]
+        self.dJp = [np.zeros((2, self.n_joints)) for _ in range(self.n_links)]
 
-        self.Jp = [np.zeros((2, self.n_joints)) for i in range(self.n_links)]
-        self.dJp = [np.zeros((2, self.n_joints)) for i in range(self.n_links)]
+        self.Jt = [np.zeros((2, self.n_joints)) for _ in range(self.n_links)]
+        self.dJt = [np.zeros((2, self.n_joints)) for _ in range(self.n_links)]
 
-        self.Jt = [np.zeros((2, self.n_joints)) for i in range(self.n_links)]
-        self.dJt = [np.zeros((2, self.n_joints)) for i in range(self.n_links)]
+        self.Jr = [np.zeros((1, self.n_joints)) for _ in range(self.n_links)]
+        self.dJr = [np.zeros((1, self.n_joints)) for _ in range(self.n_links)]
 
         self.M = np.zeros((self.n_links, self.n_links))
         self.C = np.zeros((self.n_links, self.n_links))
