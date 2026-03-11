@@ -21,33 +21,33 @@ class SupportingLegController():
                 Transform(j.anchor_parent)
             )
 
-        self.chain_transforms = []
+        self.chain_transforms = [] # type: list[Transform]
         for i, j in enumerate(self.joints):
             self.chain_transforms.append(
                 self.link_transforms[i] * Transform(-j.anchor_child, j.offset)
             )
         
-        self.dq = np.zeros((self.n_joints+1,))
+        self.joint_velocities = np.zeros((self.n_joints+1,))
 
-        self.Jp = [np.zeros((2, self.n_links)) for _ in range(self.n_joints)]
-        self.dJp = [np.zeros((2, self.n_links)) for _ in range(self.n_joints)]
+        self.chain_frames_jacobians = [np.zeros((2, self.n_links)) for _ in range(self.n_joints)]
+        self.chain_frames_jacobian_derivatives = [np.zeros((2, self.n_links)) for _ in range(self.n_joints)]
 
-        self.Jt = [np.zeros((2, self.n_links)) for _ in range(self.n_links)]
-        self.dJt = [np.zeros((2, self.n_links)) for _ in range(self.n_links)]
+        self.link_jacobians = [np.zeros((2, self.n_links)) for _ in range(self.n_links)]
+        self.link_jacobian_derivatives = [np.zeros((2, self.n_links)) for _ in range(self.n_links)]
 
-        self.Jr = [np.zeros((1, self.n_links)) for _ in range(self.n_links)]
-        self.dJr = [np.zeros((1, self.n_links)) for _ in range(self.n_links)]
+        self.rotation_jacobians = [np.zeros((1, self.n_links)) for _ in range(self.n_links)]
+        self.rotation_jacobian_derivatives = [np.zeros((1, self.n_links)) for _ in range(self.n_links)]
 
-        self.M = np.zeros((self.n_links, self.n_links))
-        self.C = np.zeros((self.n_links, self.n_links))
+        self.inertia = np.zeros((self.n_links, self.n_links))
+        self.cc_matrix = np.zeros((self.n_links, self.n_links))
         
-        self.Fg = np.zeros((self.n_links,))
+        self.gravity_efforts = np.zeros((self.n_links,))
     
     def update_matrices(self):
         # Joints' velocities
-        self.dq[0] = self.links[0].w
+        self.joint_velocities[0] = self.links[0].w
         for i, j in enumerate(self.joints):
-            self.dq[i+1] = j.parent.w - j.child.w
+            self.joint_velocities[i+1] = j.parent.w - j.child.w
 
         # Frames
         chain_frames = [Transform()]
@@ -65,61 +65,65 @@ class SupportingLegController():
         for i, cf in enumerate(chain_frames[1:]):
             for j, jf in enumerate(chain_frames[:i+1]):
                 derivative = cf.derivative("angle", jf)
-                self.Jp[i][:,j] = derivative[:2]
+                self.chain_frames_jacobians[i][:,j] = derivative[:2]
 
         for i, lf in enumerate(link_frames):
             for j, jf in enumerate(chain_frames[:i+1]):
                 derivative = lf.derivative("angle", jf)
-                self.Jt[i][:,j] = derivative[:2]
-                self.Jr[i][0,j] = derivative[2]
+                self.link_jacobians[i][:,j] = derivative[:2]
+                self.rotation_jacobians[i][0,j] = derivative[2]
 
         # Frames' velocities
         chain_frames_velocities = [np.array([-self.links[0].w * self.foot_radius, 0])]
         for i in range(self.n_joints):
-            chain_frames_velocities.append(self.Jp[i] @ self.dq)
+            chain_frames_velocities.append(self.chain_frames_jacobians[i] @ self.joint_velocities)
 
         # Jacobians' derivatives 
         for i in range(self.n_joints):
             for j in range(i+1):
-                self.dJp[i][:,j] = (np.array([[0, -1], [1, 0]])
-                                    @ (chain_frames_velocities[i+1]
-                                       - chain_frames_velocities[j]))
+                self.chain_frames_jacobian_derivatives[i][:,j] = (
+                    np.array([[0, -1], [1, 0]])
+                    @ (chain_frames_velocities[i+1]
+                       - chain_frames_velocities[j])
+                )
 
         for i in range(self.n_links):
             for j in range(i+1):
-                self.dJt[i][:,j] = (np.array([[0, -1], [1, 0]])
-                                    @ ((self.Jt[i] @ self.dq)
-                                       - chain_frames_velocities[j]))
-                self.dJr[i][0,j] = 0.0
+                self.link_jacobian_derivatives[i][:,j] = (
+                    np.array([[0, -1], [1, 0]])
+                    @ ((self.link_jacobians[i] @ self.joint_velocities)
+                       - chain_frames_velocities[j])
+                )
+                self.rotation_jacobian_derivatives[i][0,j] = 0.0
         
-        # M
-        self.M = np.zeros((self.n_links, self.n_links))
+        # Inertia
+        self.inertia = np.zeros((self.n_links, self.n_links))
         for i in range(self.n_links):
-            self.M += (self.Jt[i].T @ self.Jt[i] * self.links[i].mass +
-                       self.Jr[i].T @ self.Jr[i] * self.links[i].moi)
+            self.inertia += (self.link_jacobians[i].T @ self.link_jacobians[i] * self.links[i].mass
+                             + self.rotation_jacobians[i].T @ self.rotation_jacobians[i] * self.links[i].moi)
         
-        # C
-        self.C = np.zeros((self.n_links, self.n_links))
+        # Centrifugal and Coriolis Effects
+        self.cc_matrix = np.zeros((self.n_links, self.n_links))
         for i in range(self.n_links):
-            self.C += (self.Jt[i].T @ self.dJt[i] * self.links[i].mass +
-                       self.Jr[i].T @ self.dJr[i] * self.links[i].moi)
+            self.cc_matrix += (self.link_jacobians[i].T @ self.link_jacobian_derivatives[i] * self.links[i].mass
+                               + self.rotation_jacobians[i].T @ self.rotation_jacobian_derivatives[i] * self.links[i].moi)
         
-        # Fg
-        self.Fg = np.zeros((self.n_links,))
+        # Gravity Efforts
+        self.gravity_efforts = np.zeros((self.n_links,))
         for i in range(self.n_links-1):
-            self.Fg += self.Jt[i].T @ utils.gravity * self.links[i].mass
+            self.gravity_efforts += self.link_jacobians[i].T @ utils.gravity * self.links[i].mass
 
     def update(self, body_wrench_ref): # check notes for explanations of these formulas
         self.update_matrices()
         
         # TODO: remove; this ignores the torque ref and allows the base to spin while keeping the center of mass in place
-        # body_torque_ref = np.array([self.Fg[0] - np.dot(self.Jt[-1][:,0], body_force_ref)])
+        # body_torque_ref = np.array([self.gravity_efforts[0] - np.dot(self.link_jacobians[-1][:,0], body_force_ref)])
         
         # TODO: remove; this projects the provided references in the allowed space
         # body_wrench_ref = np.block([body_force_ref, body_torque_ref]).reshape((3,1))
-        # J_constraints = -np.block([[self.Jt[-1][:,0:1]], [self.Jr[-1][:,0:1]]])
+        # J_constraints = -np.block([[self.link_jacobians[-1][:,0:1]], [self.rotation_jacobians[-1][:,0:1]]])
         # J_constraints_T = np.transpose(J_constraints)
-        # k_constraints = np.array([-self.Fg[0]]).reshape((1,1))
+        # k_constraints = np.array([-self.gravity_efforts[0]]).reshape((1,1))
         # body_wrench_ref += np.matmul(np.matmul(
         #     J_constraints,
         #     np.linalg.inv(np.matmul(J_constraints_T, J_constraints))),
@@ -127,11 +131,11 @@ class SupportingLegController():
         # body_force_ref = body_wrench_ref[:2,0]
         # body_torque_ref = body_wrench_ref[2:,0]
 
-        # Fb = - (self.Jt[-1].T @ body_force_ref + self.Jr[-1].T @ body_torque_ref)
-        Fb = - np.vstack((self.Jt[-1], self.Jr[-1])).T @ body_wrench_ref
+        # body_efforts = - (self.link_jacobians[-1].T @ body_force_ref + self.rotation_jacobians[-1].T @ body_torque_ref)
+        body_efforts = - np.vstack((self.link_jacobians[-1], self.rotation_jacobians[-1])).T @ body_wrench_ref
         
-        Fu = self.Fg + Fb # in theory Fu = - Fg - Fb, but Fu holds the negatives of the torques to apply; this way, it holds the actual torques to apply
+        joint_efforts = self.gravity_efforts + body_efforts # in theory joint_efforts = - gravity_efforts - body_efforts, but joint_efforts holds the negatives of the torques to apply; this way, it holds the actual torques to apply
         for i in range(len(self.joints)):
-            self.joints[i].apply_effort(Fu[i+1])
+            self.joints[i].apply_effort(joint_efforts[i+1])
 
-        # print(Fu) # TODO: only here for debugging
+        # print(joint_efforts) # TODO: only here for debugging

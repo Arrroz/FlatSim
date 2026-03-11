@@ -5,19 +5,10 @@ from control.pid import PIDController
 
 class BodyController():
 
-    def __init__(self, body: body.Body, leg_controllers: list[SupportingLegController], kp=10, ki=0.1, kd=10):
+    def __init__(self, body: body.Body, leg_controllers: list[SupportingLegController], kp=20, ki=0, kd=20):
         self.body = body
         self.leg_controllers = leg_controllers
         
-        z = 2
-        kp = 3*z*z
-        ki = z*z*z
-        kd = 3*z
-        # k = 3
-        # z = 1
-        # kp = k*2*z
-        # ki = k*z*z
-        # kd = k
         self.pid = PIDController(kp=kp, ki=ki, kd=kd)
         
     def update(self, dt, ref, dref=np.zeros((3,))):
@@ -45,10 +36,10 @@ class BodyController():
             lc = self.leg_controllers[i]
             lc.update_matrices() # TODO: requiring the jacobians to be calculcated by the legs first is annoying for the distributed control
 
-            Jl = np.block([lc.Jt[-1].T, lc.Jr[-1].T])
+            Jl = np.block([lc.link_jacobians[-1].T, lc.rotation_jacobians[-1].T])
             JL[i, 3*i:3*(i+1)] = Jl[0, :]
 
-            kl = lc.Fg # TODO: implement M and N components compensation
+            kl = lc.gravity_efforts # TODO: implement M and N components compensation
             kL[i] = kl[0]
 
         gamma = np.tile(np.eye(3), nLegs)
@@ -87,23 +78,19 @@ class WholeBodyController():
         for lc in self.leg_controllers:
             lc.update_matrices() # TODO: requiring the jacobians to be calculcated by the legs first is annoying for the distributed control
 
-            dql = np.zeros((lc.n_joints+1,))
-            dql[0] = lc.links[0].w
-            for i in range(1, lc.n_links):
-                dql[i] = lc.links[i].w - lc.links[i-1].w
-            
-            Jb = np.vstack((lc.Jt[-1], lc.Jr[-1]))
-            dJb = np.vstack((lc.dJt[-1], lc.dJr[-1]))
+            body_jacobian = np.vstack((lc.link_jacobians[-1], lc.rotation_jacobians[-1]))
+            body_jacobian_derivative = np.vstack((lc.link_jacobian_derivatives[-1], lc.rotation_jacobian_derivatives[-1]))
 
-            Amat = Jb @ np.linalg.inv(lc.M)
+            leg_input_dynamics = body_jacobian @ np.linalg.inv(lc.inertia)
 
-            lsMat = np.hstack((lsMat, Amat[:,1:]))
-            parasite_influences += (dJb - Amat @ lc.C) @ dql + Amat @ lc.Fg
+            lsMat = np.hstack((lsMat, leg_input_dynamics[:,1:]))
+            parasite_influences += ((body_jacobian_derivative - leg_input_dynamics @ lc.cc_matrix) @ lc.joint_velocities
+                                    + leg_input_dynamics @ lc.gravity_efforts)
 
         lc = self.leg_controllers[0] # TODO: the gravity influence should be leg agnostic
-        Jb = np.vstack((lc.Jt[-1], lc.Jr[-1]))
+        body_jacobian = np.vstack((lc.link_jacobians[-1], lc.rotation_jacobians[-1]))
         gravity_influence = np.concatenate((utils.gravity, [0])) # WARNING: this is actually much more complex than shown and very complicated to decompose in such a way that this is one of the terms
-        # gravity_influence = Jb @ np.linalg.inv(lc.M) @ Jb.T @ np.concatenate((utils.gravity, [0])) * self.body.mass
+        # gravity_influence = body_jacobian @ np.linalg.inv(lc.inertia) @ body_jacobian.T @ np.concatenate((utils.gravity, [0])) * self.body.mass
         
         lsVec = acc_ref - parasite_influences - gravity_influence
 

@@ -23,7 +23,7 @@ scene.add_reference()
 scene.reference.pose = robot.base.pose.copy()
 
 record = Record(scene)
-record.track("jacobian", None, lambda: robot.controller.leg_controllers[0].Jt[-1])
+record.track("jacobian", None, lambda: robot.controller.leg_controllers[0].chain_frames_jacobians[-1])
 
 def update(dt):
     record.note(dt)
