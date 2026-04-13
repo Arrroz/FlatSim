@@ -6,7 +6,7 @@ from control.pid import PIDController
 
 class ArmController():
 
-    def __init__(self, joints: list[joint.Joint], end_anchor, kp=100, ki=0, kd=20):
+    def __init__(self, joints: list[joint.Joint], end_anchor, kp=20, ki=0, kd=20, contact_threshold=2):
         self.joints = joints
         self.links = [j.child for j in joints]
 
@@ -45,6 +45,12 @@ class ArmController():
         self.cc_matrix = np.zeros((self.n_links, self.n_links))
         
         self.gravity_efforts = np.zeros((self.n_links,))
+
+        self.efforts = np.zeros((self.n_joints,))
+        
+        self._generalized_momentum_estimate = np.zeros((self.n_joints,))
+        self._efforts_residual = np.zeros((self.n_joints,))
+        self.contact_threshold = contact_threshold
     
     def update_matrices(self):
         # Joints' velocities
@@ -52,7 +58,7 @@ class ArmController():
             self.joint_velocities[i] = j.child.w - j.parent.w
 
         # Frames
-        curr_frame = self.chain_transforms[0]
+        curr_frame = Transform(angle=-self.joints[0].parent.theta) * self.chain_transforms[0] # WARNING: requires knowing the orientation of the base
         chain_frames = [curr_frame]
         link_frames = []
         for i in range(self.n_joints):
@@ -114,7 +120,7 @@ class ArmController():
             self.gravity_efforts += self.link_jacobians[i].T @ utils.gravity * self.links[i].mass
 
     def get_end_pos(self):
-        transf = self.chain_transforms[0]
+        transf = Transform(angle=-self.joints[0].parent.theta) * self.chain_transforms[0] # WARNING: requires knowing the orientation of the base
         for i, ct in enumerate(self.chain_transforms[1:]):
             transf *= Transform(angle=-self.joints[i].get_angle()) * ct
 
@@ -123,9 +129,7 @@ class ArmController():
     def get_end_vel(self):
         return self.chain_frames_jacobians[-1] @ self.joint_velocities
 
-    def update(self, dt, ref, dref=np.zeros((2,))):
-        self.update_matrices()
-
+    def apply_efforts(self, dt, ref, dref=np.zeros((2,))):
         acc_ref = self.pid.update(dt,
                                   ref-self.get_end_pos(),
                                   dref-self.get_end_vel())
@@ -134,8 +138,32 @@ class ArmController():
         model_dynamics = ((self.chain_frames_jacobian_derivatives[-1] - model_input_dynamics @ self.cc_matrix) @ self.joint_velocities
                           + model_input_dynamics @ self.gravity_efforts)
         
-        efforts, _, _, _ = np.linalg.lstsq(model_input_dynamics,
-                                           acc_ref - model_dynamics)
+        self.efforts, _, _, _ = np.linalg.lstsq(model_input_dynamics,
+                                                acc_ref - model_dynamics)
         
         for i in range(self.n_joints):
-            self.joints[i].apply_effort(efforts[i])
+            self.joints[i].apply_effort(self.efforts[i])
+    
+    def reset_contact_detection(self):
+        self._generalized_momentum_estimate = self.inertia @ self.joint_velocities
+
+    def update_contact_detection(self, dt):
+        generalized_momentum = self.inertia @ self.joint_velocities
+
+        # TODO: remove self: only a part of the self so it's plotable
+        self._efforts_residual = generalized_momentum - self._generalized_momentum_estimate
+
+        self._generalized_momentum_estimate += (
+            self.cc_matrix.T @ self.joint_velocities
+            + self.gravity_efforts
+            + self.efforts
+            + self._efforts_residual
+        ) * dt
+
+    def in_contact(self):
+        return np.any(np.abs(self._efforts_residual) > self.contact_threshold)
+
+    def update(self, dt, ref, dref=np.zeros((2,)), check_contacts=False):
+        self.update_matrices()
+        self.apply_efforts(dt, ref, dref)
+        if check_contacts: self.update_contact_detection(dt)
