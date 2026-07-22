@@ -12,7 +12,7 @@ class Engine():
         self.drift_solver = drift_solver
 
         self.reset()
-        
+
     def reset(self):
         self.movables = [b for b in self.bodies if b.movable]
 
@@ -39,7 +39,7 @@ class Engine():
 
         self.integration_solver.num_eqs = mat.M_dim + mat.n_equalities
         self.drift_solver.num_eqs = c_mat.M_dim + c_mat.n_equalities
-    
+
     def integrate(self, dt):
         # update necessary constraint matrices
         self.constraint_handler.update_jacobians()
@@ -47,11 +47,16 @@ class Engine():
         self.constraint_handler.update_constraint_constants()
         mat = self.constraint_handler.matrices
 
+        # load each body's current velocity into dq; the right-hand side below reads it,
+        # then the solver overwrites dq with the updated velocity
+        for i in range(len(self.movables)):
+            mat.dq[3*i:3*i+3] = self.movables[i].vel
+
         # update solver matrices as needed
         solver = self.integration_solver
         #if solver.q.shape[0] != mat.M_dim + mat.C_dim: # TODO: reinsert this; currently, inserting this makes M not update and have wrong dimensions because of the way the E and miu matrices are added to M
         self.reset_solver_matrices()
-        
+
         # extra rows and columns of solver.M come from weird friction constraints # TODO: this is sooooooo ugly *barf*
         E = np.zeros((2*self.n_friction_constraints, self.n_friction_constraints))
         for i in range(self.n_friction_constraints):
@@ -117,7 +122,7 @@ class Engine():
             self.movables[i].x += delta_q[3*i]
             self.movables[i].y += delta_q[3*i+1]
             self.movables[i].theta += delta_q[3*i+2]
-    
+
     def update_collision_constraints(self):
         for c in self.constraint_handler.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
             if isinstance(c, constraint.ContactConstraint) or isinstance(c, constraint.FrictionConstraint):
@@ -125,7 +130,7 @@ class Engine():
         for c in self.correction_constraint_handler.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
             if isinstance(c, constraint.ContactConstraint) or isinstance(c, constraint.FrictionConstraint):
                 self.correction_constraint_handler.remove_constraint(c)
-        
+
         self.collision_handler.update_collisions()
 
         for c in self.collision_handler.collisions: # TODO: the next loop needs to be separate from this one just so all the contact constraints are added before the friction ones; the construction of the matrices should be agnostic to this
@@ -142,37 +147,45 @@ class Engine():
     def step(self, dt): # Chapter 4.1 details the steps in this method
         # steps 1 and 2 happen outside this method
 
+        # integrate() consumes and zeroes each body's forces, but the frame's forces act over the
+        # whole frame, so keep a copy to restore before every sub-step and every retry
+        frame_wrenches = [m.rwrench.copy() for m in self.movables]
+
         remaining_dt = dt
         while remaining_dt > 0:
-            dt = remaining_dt
-            
-            interpenetration = True
-            while interpenetration and dt > 1e-4: # last condition prevents dt from getting consistently too low in full penetration events, allowing the simulation to proceed # TODO: looky here!! another loose and empirically determined constant <3
-                interpenetration = False
+            sub_dt = remaining_dt
 
-                self.integrate(dt) # steps 3, 4, 5 and 6 # TODO: previously inserted contact and friction constraints are only considered in the first iteration
+            # snapshot the state at the start of this subframe so a rejected attempt can be fully undone
+            subframe_poses = [m.pose.copy() for m in self.movables]
+            subframe_vels = [m.vel.copy() for m in self.movables]
 
-                # step 7
+            while True:
+                # restore the start-of-subframe state and forces before each attempt
+                for i, m in enumerate(self.movables):
+                    m.pose = subframe_poses[i].copy()
+                    m.vel = subframe_vels[i].copy()
+                    m.rwrench = frame_wrenches[i].copy()
 
-                # reset contact and friction constraints
+                self.integrate(sub_dt) # steps 3, 4, 5 and 6 # TODO: previously inserted contact and friction constraints are only considered in the first iteration
+
+                # step 7: rebuild the contact and friction constraints from the new positions
                 self.update_collision_constraints()
 
                 # check for interpenetration
+                interpenetration = False
                 for c in self.collision_handler.collisions:
                     if c.dist < 0:
                         interpenetration = True
                         break
-                
-                # revert the integration and update the time step in case there is interpenetration
-                if interpenetration:
-                    for m in self.movables:
-                        m.x -= dt * m.vx
-                        m.y -= dt * m.vy
-                        m.theta -= dt * m.w
-                    dt /= 2
 
-            remaining_dt -= dt
-            
+                # accept the step if it is penetration-free, or once sub_dt has shrunk to the minimum;
+                # below that we stop halving and let the contact solve and drift correction resolve the
+                # penetration # TODO: another loose, empirically determined constant <3
+                if not interpenetration or sub_dt <= 1e-4:
+                    break
+
+                sub_dt /= 2
+
+            remaining_dt -= sub_dt
+
             self.correct_drift() # steps 8 and 9
-
-        
