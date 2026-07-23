@@ -205,14 +205,23 @@ class Line(CollidableFeature):
         elif other.__class__ == Line:
             contacts = []
 
+            # the two segments intersect if the infinite-line crossing point lies within both extents; a
+            # vertex behind an edge only counts as penetrating (dist < 0) when the segments actually cross
+            det = self.tangent[1] * other.tangent[0] - self.tangent[0] * other.tangent[1]
+            if det == 0: # parallel: no crossing (resting is still caught by the tolerance band below)
+                intersect = False
+            else:
+                inv_mat = np.array([[other.tangent[1], -other.tangent[0]], [self.tangent[1], -self.tangent[0]]]) / det
+                sol = inv_mat @ (self.p1 - other.p1)
+                intersect = 0 <= sol[0] <= self.length and 0 <= sol[1] <= other.length
+
             # self's vertices against other's edge; a vertex contacts if it is over the edge and either
-            # within tolerance in front (normal side) or behind but on a segment that straddles the edge
+            # within tolerance in front (normal side) or behind while the segments cross (penetration)
             proj1, dist1 = self.l2p_vecs(self.p1, other.p1, other.tangent, other.normal)
             proj2, dist2 = self.l2p_vecs(self.p2, other.p1, other.tangent, other.normal)
-            straddles = (dist1 > 0) != (dist2 > 0)
 
             for vertex_relative_pos, projection, dist in [(self.relative_p1, proj1, dist1), (self.relative_p2, proj2, dist2)]:
-                if 0 <= projection <= other.length and dist <= tolerance and (dist >= 0 or straddles):
+                if 0 <= projection <= other.length and dist <= tolerance and (dist >= 0 or intersect):
                     rp1 = vertex_relative_pos
                     rp2 = other.relative_p1 + projection * other.tangent
                     contacts.append(Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist))
@@ -220,10 +229,9 @@ class Line(CollidableFeature):
             # other's vertices against self's edge
             proj1, dist1 = self.l2p_vecs(other.p1, self.p1, self.tangent, self.normal)
             proj2, dist2 = self.l2p_vecs(other.p2, self.p1, self.tangent, self.normal)
-            straddles = (dist1 > 0) != (dist2 > 0)
 
             for vertex_relative_pos, projection, dist in [(other.relative_p1, proj1, dist1), (other.relative_p2, proj2, dist2)]:
-                if 0 <= projection <= self.length and dist <= tolerance and (dist >= 0 or straddles):
+                if 0 <= projection <= self.length and dist <= tolerance and (dist >= 0 or intersect):
                     rp1 = self.relative_p1 + projection * self.tangent
                     rp2 = vertex_relative_pos
                     contacts.append(Collision(self.parent, other.parent, rp1, rp2, self.normal, dist))
