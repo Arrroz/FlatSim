@@ -3,7 +3,6 @@ from physics import body, solver, constraint, collision
 
 class Engine():
 
-    # def __init__(self, bodies: list[body.Body], constraint_handler: constraint.ConstraintHandler, correction_constraint_handler: constraint.ConstraintHandler,
     def __init__(self, bodies: list[body.Body], constraints: list[constraint.Constraint],
                  integration_solver: solver.Solver = solver.LemkeSolver(), drift_solver: solver.Solver = solver.LemkeSolver(),
                  min_sub_dt=1e-4):

@@ -15,7 +15,7 @@ class CollidableFeature():
         self.pos = self.parent.pos + self.relative_pos
 
     def colliding(self, feature, tolerance):
-        return None
+        return []
 
     # helper functions for collision detection # TODO: should these be here?
     def p2p_vec(self, p1: np.ndarray, p2: np.ndarray): # vector between 2 points
@@ -87,12 +87,11 @@ class CollisionHandler():
 
         self.collisions = []
         for f_pair in self.collidable_feature_pairs:
-            collision = f_pair[0].colliding(f_pair[1], self.tolerance)
+            for collision in f_pair[0].colliding(f_pair[1], self.tolerance):
+                if self.is_collision_duplicate(collision):
+                    continue
 
-            if collision == None or self.is_collision_duplicate(collision):
-                continue
-
-            self.collisions.append(collision)
+                self.collisions.append(collision)
 
     def is_collision_duplicate(self, collision: Collision):
         for c in self.collisions:
@@ -135,15 +134,15 @@ class Circle(CollidableFeature):
             if dist <= tolerance:
                 rp1 = self.relative_pos + self.radius * normal
                 rp2 = other.relative_pos - other.radius * normal
-                return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
+                return [Collision(self.parent, other.parent, rp1, rp2, normal, dist)]
 
-            return None
+            return []
 
         elif other.__class__ == Line:
             projection, dist = self.l2p_vecs(self.pos, other.p1, other.tangent, other.normal)
 
             if dist < 0: # removes weird collisions with polygon corners
-                return None
+                return []
 
             if projection < 0:
                 normal, dist = self.p2p_vec(self.pos, other.p1)
@@ -152,7 +151,7 @@ class Circle(CollidableFeature):
                 if dist <= tolerance:
                     rp1 = self.relative_pos + self.radius * normal
                     rp2 = other.relative_p1
-                    return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
+                    return [Collision(self.parent, other.parent, rp1, rp2, normal, dist)]
 
             elif projection > other.length:
                 normal, dist = self.p2p_vec(self.pos, other.p2)
@@ -161,19 +160,19 @@ class Circle(CollidableFeature):
                 if dist <= tolerance:
                     rp1 = self.relative_pos + self.radius * normal
                     rp2 = other.relative_p2
-                    return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
+                    return [Collision(self.parent, other.parent, rp1, rp2, normal, dist)]
 
             else:
                 dist -= self.radius
                 if dist <= tolerance:
                     rp1 = self.relative_pos - self.radius * other.normal
                     rp2 = other.relative_p1 + projection * other.tangent
-                    return Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist)
+                    return [Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist)]
 
-            return None
+            return []
 
         else:
-            return None
+            return []
 
 
 class Line(CollidableFeature):
@@ -204,48 +203,35 @@ class Line(CollidableFeature):
             return other.colliding(self, tolerance)
 
         elif other.__class__ == Line:
-            det = self.tangent[1] * other.tangent[0] - self.tangent[0] * other.tangent[1]
-            if det == 0:
-                return None # TODO: in this case, lines are parallel; in rare cases there could be intersections; add detection for those cases
+            contacts = []
 
-            inv_mat = np.array([[other.tangent[1], -other.tangent[0]], [self.tangent[1], -self.tangent[0]]]) / det
+            # self's vertices against other's edge; a vertex contacts if it is over the edge and either
+            # within tolerance in front (normal side) or behind but on a segment that straddles the edge
+            proj1, dist1 = self.l2p_vecs(self.p1, other.p1, other.tangent, other.normal)
+            proj2, dist2 = self.l2p_vecs(self.p2, other.p1, other.tangent, other.normal)
+            straddles = (dist1 > 0) != (dist2 > 0)
 
-            sol = inv_mat @ (self.p1 - other.p1)
-            if (sol[0] < -tolerance or sol[0] > self.length + tolerance or
-                sol[1] < -tolerance or sol[1] > other.length + tolerance):
-                return None
+            for vertex_relative_pos, projection, dist in [(self.relative_p1, proj1, dist1), (self.relative_p2, proj2, dist2)]:
+                if 0 <= projection <= other.length and dist <= tolerance and (dist >= 0 or straddles):
+                    rp1 = vertex_relative_pos
+                    rp2 = other.relative_p1 + projection * other.tangent
+                    contacts.append(Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist))
 
-            dists2points = [np.abs(sol[0]),
-                     np.abs(self.length - sol[0]),
-                     np.abs(sol[1]),
-                     np.abs(other.length - sol[1])]
-            closest_point_i = np.argmin(dists2points)
+            # other's vertices against self's edge
+            proj1, dist1 = self.l2p_vecs(other.p1, self.p1, self.tangent, self.normal)
+            proj2, dist2 = self.l2p_vecs(other.p2, self.p1, self.tangent, self.normal)
+            straddles = (dist1 > 0) != (dist2 > 0)
 
-            if closest_point_i == 0: # point p1 of self line
-                projection, dist = self.l2p_vecs(self.p1, other.p1, other.tangent, other.normal)
-                normal = -other.normal
-                rp1 = self.relative_p1
-                rp2 = other.relative_p1 + projection * other.tangent
-            elif closest_point_i == 1: # point p2 of self line
-                projection, dist = self.l2p_vecs(self.p2, other.p1, other.tangent, other.normal)
-                normal = -other.normal
-                rp1 = self.relative_p2
-                rp2 = other.relative_p1 + projection * other.tangent
-            elif closest_point_i == 2: # point p1 of other line
-                projection, dist = self.l2p_vecs(other.p1, self.p1, self.tangent, self.normal)
-                normal = self.normal
-                rp1 = self.relative_p1 + projection * self.tangent
-                rp2 = other.relative_p1
-            elif closest_point_i == 3: # point p2 of other line
-                projection, dist = self.l2p_vecs(other.p2, self.p1, self.tangent, self.normal)
-                normal = self.normal
-                rp1 = self.relative_p1 + projection * self.tangent
-                rp2 = other.relative_p2
+            for vertex_relative_pos, projection, dist in [(other.relative_p1, proj1, dist1), (other.relative_p2, proj2, dist2)]:
+                if 0 <= projection <= self.length and dist <= tolerance and (dist >= 0 or straddles):
+                    rp1 = self.relative_p1 + projection * self.tangent
+                    rp2 = vertex_relative_pos
+                    contacts.append(Collision(self.parent, other.parent, rp1, rp2, self.normal, dist))
 
-            return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
+            return contacts
 
         else:
-            return None
+            return []
 
 
 class Point(Circle):
@@ -255,6 +241,6 @@ class Point(Circle):
 
     def colliding(self, other: CollidableFeature, tolerance):
         if other.__class__ == Point: # points shouldn't be able to collide as there is no defined norm
-            return None
+            return []
 
         return super().colliding(other, tolerance)
