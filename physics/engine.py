@@ -5,21 +5,27 @@ class Engine():
 
     # def __init__(self, bodies: list[body.Body], constraint_handler: constraint.ConstraintHandler, correction_constraint_handler: constraint.ConstraintHandler,
     def __init__(self, bodies: list[body.Body], constraints: list[constraint.Constraint],
-                 integration_solver: solver.Solver = solver.LemkeSolver(), drift_solver: solver.Solver = solver.LemkeSolver()):
+                 integration_solver: solver.Solver = solver.LemkeSolver(), drift_solver: solver.Solver = solver.LemkeSolver(),
+                 min_sub_dt=1e-4):
         self.bodies = bodies
         self.constraints = constraints
         self.integration_solver = integration_solver
         self.drift_solver = drift_solver
+        self.min_sub_dt = min_sub_dt
+
+        self.constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
+        self.correction_constraint_handler = constraint.ConstraintHandler(self.constraints.copy(), self.bodies)
+        self.collision_handler = collision.CollisionHandler(self.bodies)
 
         self.reset()
 
     def reset(self):
         self.movables = [b for b in self.bodies if b.movable]
 
-        self.constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
-        self.correction_constraint_handler = constraint.ConstraintHandler(self.constraints.copy(), self.bodies)
+        self.constraint_handler.reset(self.constraints, self.bodies)
+        self.correction_constraint_handler.reset(self.constraints.copy(), self.bodies)
 
-        self.collision_handler = collision.CollisionHandler(self.bodies)
+        self.collision_handler.reset(self.bodies)
 
         self.reset_solver_matrices()
 
@@ -62,7 +68,8 @@ class Engine():
         for i in range(self.n_friction_constraints):
             E[2*i,i] = 1
             E[2*i+1,i] = 1
-        miu = 2 * np.identity(self.n_friction_constraints) # TODO: where to get friction coefficient from?
+        miu = np.diag([c.friction_coefficient for c in self.constraint_handler.constraints
+                       if isinstance(c, constraint.FrictionConstraint)])
         extra_column = np.zeros((mat.M_dim + mat.C_dim, self.n_friction_constraints))
         extra_column[(mat.M_dim + mat.C_dim - 2*self.n_friction_constraints):(mat.M_dim + mat.C_dim), :] = E
         extra_row = np.zeros((self.n_friction_constraints, mat.M_dim + mat.C_dim + self.n_friction_constraints))
@@ -134,9 +141,9 @@ class Engine():
         self.collision_handler.update_collisions()
 
         for c in self.collision_handler.collisions: # TODO: the next loop needs to be separate from this one just so all the contact constraints are added before the friction ones; the construction of the matrices should be agnostic to this
-            contact_constraint = constraint.ContactConstraint(c)
+            contact_constraint = constraint.ContactConstraint(c, impact_speed_threshold=self.constraint_handler.impact_speed_threshold)
             self.constraint_handler.add_constraint(contact_constraint)
-            self.correction_constraint_handler.add_constraint(constraint.ContactConstraint(c)) # TODO: should this be a copy of the constraint instead of the same one?
+            self.correction_constraint_handler.add_constraint(contact_constraint)
 
         for c in self.collision_handler.collisions:
             friction_constraint = constraint.FrictionConstraint(c)
@@ -179,9 +186,8 @@ class Engine():
                         break
 
                 # accept the step if it is penetration-free, or once sub_dt has shrunk to the minimum;
-                # below that we stop halving and let the contact solve and drift correction resolve the
-                # penetration # TODO: another loose, empirically determined constant <3
-                if not interpenetration or sub_dt <= 1e-4:
+                # below that we stop halving and let the contact solve and drift correction resolve the penetration
+                if not interpenetration or sub_dt <= self.min_sub_dt:
                     break
 
                 sub_dt /= 2

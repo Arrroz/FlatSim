@@ -7,7 +7,7 @@ class Constraint():
         self.dimension = 0
         self.bodies = [] # list[body.Body]
         self.equality = True # False if it is an inequality constraint (joints vs contacts)
-    
+
     def J(self, body: body.Body):
         pass
 
@@ -25,12 +25,16 @@ class DataMatrices(): # used in the ConstraintHandler class to hold the matrices
 
 
 class ConstraintHandler():
-    
-    def __init__(self, constraints: list[Constraint], bodies: list[body.Body]):
+
+    def __init__(self, constraints: list[Constraint], bodies: list[body.Body], impact_speed_threshold=5):
+        self.impact_speed_threshold = impact_speed_threshold
+        self.matrices = DataMatrices()
+        self.reset(constraints, bodies)
+
+    def reset(self, constraints: list[Constraint], bodies: list[body.Body]):
         self.constraints = constraints
         self.bodies = [b for b in bodies if b.movable] # filter out fixed bodies
 
-        self.matrices = DataMatrices()
         self.reset_matrices()
 
     def reset_matrices(self):
@@ -46,7 +50,7 @@ class ConstraintHandler():
         mat.J = np.zeros((mat.C_dim, mat.M_dim), dtype=float)
         mat.k = np.zeros((mat.C_dim,), dtype=float)
         mat.e = np.zeros((mat.C_dim,), dtype=float)
-        
+
     def update_forces_vector(self):
         start_i = 0
         for b in self.bodies:
@@ -58,14 +62,14 @@ class ConstraintHandler():
         start_i = 0
         for c in self.constraints:
             end_i = start_i + c.dimension
-            
+
             start_j = 0
             for b in self.bodies:
                 end_j = start_j + 3
 
                 if b in c.bodies:
                     self.matrices.J[start_i:end_i, start_j:end_j] = c.J(b)
-            
+
                 start_j = end_j
 
             start_i = end_i
@@ -83,7 +87,7 @@ class ConstraintHandler():
             end_i = start_i + c.dimension
             self.matrices.e[start_i:end_i] = c.e()
             start_i = end_i
-    
+
     def add_constraint(self, constraint: Constraint):
         self.constraints.append(constraint)
         mat = self.matrices
@@ -95,43 +99,44 @@ class ConstraintHandler():
         mat.J = np.block([[mat.J], [np.zeros((constraint.dimension, mat.M_dim))]])
         mat.k = np.block([mat.k, np.zeros((constraint.dimension,))])
         mat.e = np.block([mat.e, np.zeros((constraint.dimension,))])
-        
+
     def remove_constraint(self, constraint: Constraint):
         if not constraint in self.constraints:
             return
-        
+
         # find index of constraint in the matrices
         i = 0
         for c in self.constraints:
             if c == constraint:
                 break
             i += c.dimension
-        
+
         self.constraints.remove(constraint)
         mat = self.matrices
 
         mat.C_dim -= constraint.dimension
         if constraint.equality:
             mat.n_equalities -= constraint.dimension
-        
+
         mat.J = np.delete(mat.J, [i, i+constraint.dimension-1], 0)
         mat.k = np.delete(mat.k, [i, i+constraint.dimension-1], 0)
         mat.e = np.delete(mat.e, [i, i+constraint.dimension-1], 0)
 
     def add_body(self, body: Constraint):
         pass # TODO
-    
+
     def remove_body(self, body: Constraint):
         pass # TODO
 
 
 class ContactConstraint(Constraint):
 
-    def __init__(self, collision: collision.Collision):
+    def __init__(self, collision: collision.Collision, impact_speed_threshold=5):
         self.collision = collision
         self.dimension = 1
         self.bodies = [self.collision.collidable1, self.collision.collidable2]
         self.equality = False
+        self.impact_speed_threshold = impact_speed_threshold # normal speed above which a contact is treated as an impact rather than resting
 
     def J(self, body: body.Body):
         if body == self.bodies[0]:
@@ -148,15 +153,15 @@ class ContactConstraint(Constraint):
 
     def e(self):
         return self.collision.dist
-    
+
     def k(self):
         b1 = self.bodies[0]
         b2 = self.bodies[1]
         normal_relative_speed = self.J(b1) @ b1.vel + self.J(b2) @ b2.vel
-        
-        if -normal_relative_speed < 5: # TODO: what should this constant be?
+
+        if -normal_relative_speed < self.impact_speed_threshold:
             return super().k() # contact
-        return b1.restitution * b2.restitution * normal_relative_speed # impact # TODO: is this how restitution of a collision be calculated?
+        return min(b1.restitution, b2.restitution) * normal_relative_speed # impact
 
 
 class FrictionConstraint(Constraint):
@@ -167,6 +172,8 @@ class FrictionConstraint(Constraint):
         self.bodies = [self.collision.collidable1, self.collision.collidable2]
         self.equality = False
 
+        self.friction_coefficient = min(self.bodies[0].friction, self.bodies[1].friction)
+
     def J(self, body: body.Body):
         if body == self.bodies[0]:
             relative_pos = self.collision.relative_pos1
@@ -176,13 +183,13 @@ class FrictionConstraint(Constraint):
             sign = 1
         else:
             return None
-        
+
         tangent = np.array([-self.collision.normal[1], self.collision.normal[0]])
         rotJ = np.cross(relative_pos, tangent)
 
         return sign * np.block([[tangent, rotJ],
                                 [-tangent, -rotJ]])
-    
+
     # TODO: should this be zeros?
     def e(self):
         return self.collision.dist # the extra is added to make sure contacts remain dispite numerical errors # TODO: how much should it be?

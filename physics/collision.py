@@ -2,11 +2,10 @@ import numpy as np
 from physics import body
 
 class CollidableFeature():
-    
+
     def __init__(self, anchor_x=0, anchor_y=0):
         self.parent = None # type: Collidable
         self.anchor = np.array([anchor_x, anchor_y])
-        self.tolerance = 1e-3 # TODO: this shouldn't be here; it shouldn't even be feature dependent (should be universally applicable to all features)
 
     def update_pos(self):
         cos_theta = np.cos(self.parent.theta)
@@ -15,9 +14,9 @@ class CollidableFeature():
         self.relative_pos = r_mat @ self.anchor
         self.pos = self.parent.pos + self.relative_pos
 
-    def colliding(self, feature):
+    def colliding(self, feature, tolerance):
         return None
-    
+
     # helper functions for collision detection # TODO: should these be here?
     def p2p_vec(self, p1: np.ndarray, p2: np.ndarray): # vector between 2 points
         u = p2 - p1
@@ -25,10 +24,10 @@ class CollidableFeature():
         if dist == 0:
             return (np.array([1, 0]), 0)
         return (u / dist, dist)
-    
+
     def l2p_dist(self, p: np.ndarray, line_p: np.ndarray, normal: np.ndarray):
         return np.dot(p - line_p, normal)
-    
+
     def l2p_vecs(self, p: np.ndarray, line_p: np.ndarray, tangent: np.ndarray, normal: np.ndarray): # projections of a point in a line's tangent and normal # TODO: remove normal if not necessary (could use cross product with tangent instead)
         u = p - line_p
         return (np.dot(u, tangent), np.dot(u, normal))
@@ -38,7 +37,7 @@ class Collidable(body.Body):
 
     def __init__(self, collidable_features: list[CollidableFeature], *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         for f in collidable_features:
             f.parent = self
             f.update_pos()
@@ -62,7 +61,11 @@ class Collision():
 
 class CollisionHandler():
 
-    def __init__(self, bodies: list[body.Body]):
+    def __init__(self, bodies: list[body.Body], tolerance=1e-3):
+        self.tolerance = tolerance # separation distance below which a contact is reported
+        self.reset(bodies)
+
+    def reset(self, bodies: list[body.Body]):
         self.collidables = [b for b in bodies if isinstance(b, Collidable)] # type: list[Collidable]
 
         self.collidable_feature_pairs = [] # type: list[tuple[CollidableFeature]]
@@ -75,7 +78,7 @@ class CollisionHandler():
                 for f1 in collidable1.collidable_features:
                     for f2 in collidable2.collidable_features:
                         self.collidable_feature_pairs.append((f1, f2))
-        
+
         self.collisions = [] # type: list[Collision]
 
     def update_collisions(self):
@@ -84,8 +87,8 @@ class CollisionHandler():
 
         self.collisions = []
         for f_pair in self.collidable_feature_pairs:
-            collision = f_pair[0].colliding(f_pair[1])
-            
+            collision = f_pair[0].colliding(f_pair[1], self.tolerance)
+
             if collision == None or self.is_collision_duplicate(collision):
                 continue
 
@@ -96,9 +99,9 @@ class CollisionHandler():
             if (collision.collidable1 == c.collidable1 and collision.collidable2 == c.collidable2 and
                 np.all(collision.relative_pos1 == c.relative_pos1) and np.all(collision.relative_pos2 == c.relative_pos2)):
                 return True
-        
+
         return False
-    
+
     def add_collision_ignore_set(self, ignore_set: list[body.Body]):
         ignore_set = [ign for ign in ignore_set if isinstance(ign, Collidable)] # filter out bodies that aren't Collidables
 
@@ -119,23 +122,23 @@ class CollisionHandler():
 # Beware of this file from this point on! It contains messy and undocumented... MATH!!!
 
 class Circle(CollidableFeature):
-    
+
     def __init__(self, anchor_x=0, anchor_y=0, radius=0):
         super().__init__(anchor_x, anchor_y)
         self.radius = radius
-        
-    def colliding(self, other: CollidableFeature):
+
+    def colliding(self, other: CollidableFeature, tolerance):
         if other.__class__ == Circle or other.__class__ == Point:
             normal, dist = self.p2p_vec(self.pos, other.pos)
             dist -= self.radius + other.radius
 
-            if dist <= self.tolerance:
+            if dist <= tolerance:
                 rp1 = self.relative_pos + self.radius * normal
                 rp2 = other.relative_pos - other.radius * normal
                 return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
-            
+
             return None
-        
+
         elif other.__class__ == Line:
             projection, dist = self.l2p_vecs(self.pos, other.p1, other.tangent, other.normal)
 
@@ -146,27 +149,27 @@ class Circle(CollidableFeature):
                 normal, dist = self.p2p_vec(self.pos, other.p1)
                 dist -= self.radius
 
-                if dist <= self.tolerance:
+                if dist <= tolerance:
                     rp1 = self.relative_pos + self.radius * normal
                     rp2 = other.relative_p1
                     return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
-                                
+
             elif projection > other.length:
                 normal, dist = self.p2p_vec(self.pos, other.p2)
                 dist -= self.radius
 
-                if dist <= self.tolerance:
+                if dist <= tolerance:
                     rp1 = self.relative_pos + self.radius * normal
                     rp2 = other.relative_p2
                     return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
-                                
+
             else:
                 dist -= self.radius
-                if dist <= self.tolerance:
+                if dist <= tolerance:
                     rp1 = self.relative_pos - self.radius * other.normal
                     rp2 = other.relative_p1 + projection * other.tangent
                     return Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist)
-                
+
             return None
 
         else:
@@ -195,23 +198,23 @@ class Line(CollidableFeature):
         self.p2 = self.parent.pos + self.relative_p2
         self.tangent = (self.p2 - self.p1) / self.length
         self.normal = np.array([-self.tangent[1], self.tangent[0]]) # always points to the left of vector p1->p2
-    
-    def colliding(self, other: CollidableFeature):
+
+    def colliding(self, other: CollidableFeature, tolerance):
         if other.__class__ == Circle or other.__class__ == Point:
-            return other.colliding(self)
-        
+            return other.colliding(self, tolerance)
+
         elif other.__class__ == Line:
             det = self.tangent[1] * other.tangent[0] - self.tangent[0] * other.tangent[1]
             if det == 0:
                 return None # TODO: in this case, lines are parallel; in rare cases there could be intersections; add detection for those cases
-            
+
             inv_mat = np.array([[other.tangent[1], -other.tangent[0]], [self.tangent[1], -self.tangent[0]]]) / det
-            
+
             sol = inv_mat @ (self.p1 - other.p1)
-            if (sol[0] < -self.tolerance or sol[0] > self.length + self.tolerance or
-                sol[1] < -self.tolerance or sol[1] > other.length + self.tolerance):
+            if (sol[0] < -tolerance or sol[0] > self.length + tolerance or
+                sol[1] < -tolerance or sol[1] > other.length + tolerance):
                 return None
-            
+
             dists2points = [np.abs(sol[0]),
                      np.abs(self.length - sol[0]),
                      np.abs(sol[1]),
@@ -240,7 +243,7 @@ class Line(CollidableFeature):
                 rp2 = other.relative_p2
 
             return Collision(self.parent, other.parent, rp1, rp2, normal, dist)
-        
+
         else:
             return None
 
@@ -250,8 +253,8 @@ class Point(Circle):
     def __init__(self, anchor_x=0, anchor_y=0):
         super().__init__(anchor_x, anchor_y, 0)
 
-    def colliding(self, other: CollidableFeature):
+    def colliding(self, other: CollidableFeature, tolerance):
         if other.__class__ == Point: # points shouldn't be able to collide as there is no defined norm
             return None
 
-        return super().colliding(other)
+        return super().colliding(other, tolerance)
