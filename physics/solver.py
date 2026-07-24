@@ -120,7 +120,7 @@ class LemkeSolver(Solver):
 
         ineq_mask = ~self.eq_mask
         if not ineq_mask.any():
-            return (np.array([]), np.linalg.inv(self.M) @ -self.q, np.array([]))
+            return (np.array([]), np.linalg.pinv(self.M) @ -self.q, np.array([]))
 
         # select rows, then columns from that result, so each mask is only ever used on one axis at a time
         P = self.M[self.eq_mask][:,self.eq_mask]
@@ -131,7 +131,7 @@ class LemkeSolver(Solver):
         u = self.q[self.eq_mask]
         v = self.q[ineq_mask]
 
-        P_inv = np.linalg.inv(P)
+        P_inv = np.linalg.pinv(P)
         RP = R @ P_inv
 
         self.M = S - RP @ Q
