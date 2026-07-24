@@ -118,9 +118,9 @@ class ConstraintHandler():
         if constraint.equality:
             mat.n_equalities -= constraint.dimension
 
-        mat.J = np.delete(mat.J, [i, i+constraint.dimension-1], 0)
-        mat.k = np.delete(mat.k, [i, i+constraint.dimension-1], 0)
-        mat.e = np.delete(mat.e, [i, i+constraint.dimension-1], 0)
+        mat.J = np.delete(mat.J, range(i, i+constraint.dimension), 0)
+        mat.k = np.delete(mat.k, range(i, i+constraint.dimension), 0)
+        mat.e = np.delete(mat.e, range(i, i+constraint.dimension), 0)
 
     def add_body(self, body: Constraint):
         pass # TODO
