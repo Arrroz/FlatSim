@@ -32,7 +32,7 @@ class ConstraintHandler():
         self.reset(constraints, bodies)
 
     def reset(self, constraints: list[Constraint], bodies: list[body.Body]):
-        self.constraints = constraints
+        self.constraints = constraints.copy() # own a private copy: add/remove_constraint must not mutate the caller's list
         self.bodies = [b for b in bodies if b.movable] # filter out fixed bodies
 
         self.reset_matrices()

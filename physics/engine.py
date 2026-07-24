@@ -13,7 +13,7 @@ class Engine():
         self.min_sub_dt = min_sub_dt
 
         self.constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
-        self.correction_constraint_handler = constraint.ConstraintHandler(self.constraints.copy(), self.bodies)
+        self.correction_constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
         self.collision_handler = collision.CollisionHandler(self.bodies)
 
         self.reset()
@@ -22,7 +22,7 @@ class Engine():
         self.movables = [b for b in self.bodies if b.movable]
 
         self.constraint_handler.reset(self.constraints, self.bodies)
-        self.correction_constraint_handler.reset(self.constraints.copy(), self.bodies)
+        self.correction_constraint_handler.reset(self.constraints, self.bodies)
 
         self.collision_handler.reset(self.bodies)
 
