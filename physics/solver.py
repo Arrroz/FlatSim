@@ -31,6 +31,13 @@ class LemkeSolver(Solver):
 
         return (new_y_ids, new_B)
 
+    def lemke_update_inverse(self, B_inv, B, dropping_i, c): # Sherman-Morrison-Woodbury update (thesis 4.8.1): O(n^2) instead of recomputing pinv(B) at O(n^3) every pivot
+        delta_v = c - B[:, dropping_i]
+        b_row = B_inv[dropping_i, :]
+        u = B_inv @ delta_v
+        denom = 1 + b_row @ delta_v
+        return B_inv - np.outer(u, b_row) / denom
+
 
     def lemke_min_ratio(self, Bc, Bq, B_inv): # returns the row to drop, chosen by the lexico-minimum ratio test
         # a basic variable can only reach zero (and drop out) if its Bc entry is positive; a non-positive
@@ -64,6 +71,7 @@ class LemkeSolver(Solver):
         y_ids = np.arange(self.n+1, 2*self.n+1) # y_ids saves the indices of the variables in the basic vector y
         self.full_B = np.block([-np.ones((self.n,1)), -self.M, np.identity(self.n)])
         B = np.identity(self.n)
+        B_inv = np.identity(self.n)
 
         entering_i = 0 # entering_i is the index of the column of matrix full_B to be inserted; goes from 0 to 2*n
         dropping_i = np.argmin(self.q) # dropping_i is the index of the column of matrix B to be removed; goes from 0 to n-1
@@ -71,13 +79,14 @@ class LemkeSolver(Solver):
             return (np.maximum(self.q, 0), np.zeros((self.n,))) # clamp away any tiny negative roundoff so w stays feasible
 
         # first pivot: the artificial variable z0 enters, the most infeasible row (most negative q) drops
+        c = self.full_B[:, entering_i]
+        B_inv = self.lemke_update_inverse(B_inv, B, dropping_i, c)
         y_ids[dropping_i] = entering_i
-        B[:, dropping_i] = self.full_B[:, entering_i]
+        B[:, dropping_i] = c
         entering_i = dropping_i + 1 # next entering variable is the complement of the w that just left
 
         for _ in range(int(self.max_iterations)):
             c = self.full_B[:, entering_i]
-            B_inv = np.linalg.pinv(B)
             Bc = B_inv @ c
             Bq = B_inv @ self.q
 
@@ -88,6 +97,7 @@ class LemkeSolver(Solver):
             if self.debug: self.lemke_debug(entering_i, dropping_i, y_ids, B)
 
             dropped_id = y_ids[dropping_i]
+            B_inv = self.lemke_update_inverse(B_inv, B, dropping_i, c)
             y_ids, B = self.lemke_pivot(entering_i, dropping_i, y_ids, B, c)
 
             if dropped_id == 0: # z0 left the basis, so we have found a solution
