@@ -24,6 +24,8 @@ class Scene:
 
         # time controls
         self.play = False
+        self.fixed_dt = 1/120 # physics/control always advance in this fixed step, independent of the render loop's actual frame time
+        self._dt_accumulator = 0
 
         # update function
         self.update_callback = None
@@ -52,20 +54,23 @@ class Scene:
     def update(self, dt):
         if not self.play:
             return
-        
-        self.update_callback(dt)
+
+        self._dt_accumulator += dt
+        while self._dt_accumulator >= self.fixed_dt:
+            self.update_callback(self.fixed_dt)
+            self._dt_accumulator -= self.fixed_dt
 
     def add_body(self, body: body.Body):
         if body in self.bodies:
             return
-        
+
         sprite = body.sprite_generator()
         self.camera.add_sprite(sprite)
         sprite.target = body
 
         self.bodies.append(body)
         self.engine.reset()
-    
+
     def add_system(self, system: system.System):
         for l in system.links():
             self.add_body(l)
