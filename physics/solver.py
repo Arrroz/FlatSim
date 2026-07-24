@@ -5,7 +5,7 @@ class Solver():
     def __init__(self, max_iterations=1e5, tol=1e-9, debug=False):
         self.M = np.zeros((0,0))
         self.q = np.zeros((0,))
-        self.num_eqs = 0
+        self.eq_mask = np.zeros((0,), dtype=bool) # marks which rows/cols of M are equality rows, in any order
 
         self.tol = tol # tolerance for near-zero comparisons in the solver
         self.max_iterations = max_iterations
@@ -115,19 +115,21 @@ class LemkeSolver(Solver):
         n = self.q.shape[0]
         if self.M.shape != (n,n) or self.q.shape != (n,):
             raise ValueError('Lemke: matrix M has dimensions', self.M.shape, 'and vector q has dimensions', self.q.shape)
-        if self.num_eqs > n:
-            raise ValueError('Lemke: number of equalities is', self.num_eqs, 'and number of total constraints is only', n)
+        if self.eq_mask.shape != (n,):
+            raise ValueError('Lemke: equality mask has dimensions', self.eq_mask.shape, 'and should have', (n,))
 
-        if self.num_eqs == n:
+        ineq_mask = ~self.eq_mask
+        if not ineq_mask.any():
             return (np.array([]), np.linalg.inv(self.M) @ -self.q, np.array([]))
 
-        P = self.M[:self.num_eqs,:self.num_eqs]
-        Q = self.M[:self.num_eqs,self.num_eqs:]
-        R = self.M[self.num_eqs:,:self.num_eqs]
-        S = self.M[self.num_eqs:,self.num_eqs:]
+        # select rows, then columns from that result, so each mask is only ever used on one axis at a time
+        P = self.M[self.eq_mask][:,self.eq_mask]
+        Q = self.M[self.eq_mask][:,ineq_mask]
+        R = self.M[ineq_mask][:,self.eq_mask]
+        S = self.M[ineq_mask][:,ineq_mask]
 
-        u = self.q[:self.num_eqs]
-        v = self.q[self.num_eqs:]
+        u = self.q[self.eq_mask]
+        v = self.q[ineq_mask]
 
         P_inv = np.linalg.inv(P)
         RP = R @ P_inv

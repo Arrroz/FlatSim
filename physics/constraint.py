@@ -20,7 +20,7 @@ class Constraint():
 
 class DataMatrices(): # used in the ConstraintHandler class to hold the matrices used by the solver; the only point is to better organize the ConstraintHandler class
     def __init__(self):
-        self.M_dim = self.C_dim = self.n_equalities = 0
+        self.M_dim = self.C_dim = 0
         self.M = self.F = self.dq = self.J = self.k = self.e = None
 
 
@@ -41,7 +41,6 @@ class ConstraintHandler():
         mat = self.matrices
         mat.M_dim = 3 * len(self.bodies)
         mat.C_dim = sum([c.dimension for c in self.constraints])
-        mat.n_equalities = sum([c.dimension for c in self.constraints if c.equality])
 
         mat.M = np.diag(np.array([[b.mass, b.mass, b.moi] for b in self.bodies]).flatten()) # TODO: if Lagrangian dynamics are implemented, this matrix will have to be updated more often
         mat.F = np.zeros((mat.M_dim,), dtype=float)
@@ -93,8 +92,6 @@ class ConstraintHandler():
         mat = self.matrices
 
         mat.C_dim += constraint.dimension
-        if constraint.equality:
-            mat.n_equalities += constraint.dimension
 
         mat.J = np.block([[mat.J], [np.zeros((constraint.dimension, mat.M_dim))]])
         mat.k = np.block([mat.k, np.zeros((constraint.dimension,))])
@@ -115,8 +112,6 @@ class ConstraintHandler():
         mat = self.matrices
 
         mat.C_dim -= constraint.dimension
-        if constraint.equality:
-            mat.n_equalities -= constraint.dimension
 
         mat.J = np.delete(mat.J, range(i, i+constraint.dimension), 0)
         mat.k = np.delete(mat.k, range(i, i+constraint.dimension), 0)

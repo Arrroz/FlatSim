@@ -28,8 +28,6 @@ class Engine():
 
         self.reset_solver_matrices()
 
-        self.n_friction_constraints = 0
-
     def reset_solver_matrices(self):
         mat = self.constraint_handler.matrices
         c_mat = self.correction_constraint_handler.matrices
@@ -42,8 +40,11 @@ class Engine():
         self.integration_solver.q = np.zeros((mat.M_dim + mat.C_dim,))
         self.drift_solver.q = np.zeros((c_mat.M_dim + c_mat.C_dim,))
 
-        self.integration_solver.num_eqs = mat.M_dim + mat.n_equalities
-        self.drift_solver.num_eqs = c_mat.M_dim + c_mat.n_equalities
+        # the dynamics rows (the top M_dim rows/cols) are always equality; the rest follow each constraint's own flag
+        equalities = np.array([c.equality for c in self.constraint_handler.constraints for _ in range(c.dimension)], dtype=bool)
+        c_equalities = np.array([c.equality for c in self.correction_constraint_handler.constraints for _ in range(c.dimension)], dtype=bool)
+        self.integration_solver.eq_mask = np.block([np.ones((mat.M_dim,), dtype=bool), equalities])
+        self.drift_solver.eq_mask = np.block([np.ones((c_mat.M_dim,), dtype=bool), c_equalities])
 
     def integrate(self, dt):
         # update necessary constraint matrices
@@ -62,27 +63,37 @@ class Engine():
         #if solver.q.shape[0] != mat.M_dim + mat.C_dim: # TODO: reinsert this; currently, inserting this makes M not update and have wrong dimensions because of the way the E and miu matrices are added to M
         self.reset_solver_matrices()
 
-        # extra rows and columns of solver.M come from weird friction constraints # TODO: this is sooooooo ugly *barf*
-        E = np.zeros((2*self.n_friction_constraints, self.n_friction_constraints))
-        for i in range(self.n_friction_constraints):
-            E[2*i,i] = 1
-            E[2*i+1,i] = 1
-        miu = np.diag([c.friction_coefficient for c in self.constraint_handler.constraints
-                       if isinstance(c, constraint.FrictionConstraint)])
-        extra_column = np.zeros((mat.M_dim + mat.C_dim, self.n_friction_constraints))
-        extra_column[(mat.M_dim + mat.C_dim - 2*self.n_friction_constraints):(mat.M_dim + mat.C_dim), :] = E
-        extra_row = np.zeros((self.n_friction_constraints, mat.M_dim + mat.C_dim + self.n_friction_constraints))
-        extra_row[:,(mat.M_dim + mat.C_dim - 3*self.n_friction_constraints):(mat.M_dim + mat.C_dim - 2*self.n_friction_constraints)] = miu
-        extra_row[:,(mat.M_dim + mat.C_dim - 2*self.n_friction_constraints):(mat.M_dim + mat.C_dim)] = -np.transpose(E)
+        # extra rows and columns of solver.M come from friction constraints (each adds a slack variable
+        # coupling its own two tangent rows to its own contact's normal-force row) # TODO: this is sooooooo ugly *barf*
+        # constraints can be in any order, so each coupling is placed at the constraints' own row offsets
+        # rather than assumed slots, matching a friction constraint to its contact via their shared collision
+        offset = mat.M_dim
+        friction_offsets = {}
+        contact_offsets = {}
+        for c in self.constraint_handler.constraints:
+            if isinstance(c, constraint.FrictionConstraint):
+                friction_offsets[c] = offset
+            elif isinstance(c, constraint.ContactConstraint):
+                contact_offsets[c.collision] = offset
+            offset += c.dimension
+
+        n_friction_constraints = len(friction_offsets)
+        extra_columns = np.zeros((mat.M_dim + mat.C_dim, n_friction_constraints))
+        extra_rows = np.zeros((n_friction_constraints, mat.M_dim + mat.C_dim + n_friction_constraints))
+        for i, (friction_constraint, friction_offset) in enumerate(friction_offsets.items()):
+            extra_columns[friction_offset:friction_offset+friction_constraint.dimension, i] = 1
+            extra_rows[i, contact_offsets[friction_constraint.collision]] = friction_constraint.friction_coefficient
+            extra_rows[i, friction_offset:friction_offset+friction_constraint.dimension] = -1
 
         solver.M[:mat.M_dim, mat.M_dim:] = -np.transpose(mat.J)
         solver.M[mat.M_dim:, :mat.M_dim] = mat.J
         solver.q[:mat.M_dim] = -(mat.M @ mat.dq + dt * mat.F)
         solver.q[mat.M_dim:] = mat.k
 
-        solver.M = np.block([[solver.M, extra_column],
-                             [extra_row]])
-        solver.q = np.block([solver.q, np.zeros((self.n_friction_constraints,))])
+        solver.M = np.block([[solver.M, extra_columns],
+                             [extra_rows]])
+        solver.q = np.block([solver.q, np.zeros((n_friction_constraints,))])
+        solver.eq_mask = np.block([solver.eq_mask, np.zeros((n_friction_constraints,), dtype=bool)]) # friction slack rows are inequality
 
         # solve for the velocities
         sol = solver.solve()
@@ -139,16 +150,13 @@ class Engine():
 
         self.collision_handler.update_collisions()
 
-        for c in self.collision_handler.collisions: # TODO: the next loop needs to be separate from this one just so all the contact constraints are added before the friction ones; the construction of the matrices should be agnostic to this
+        for c in self.collision_handler.collisions:
             contact_constraint = constraint.ContactConstraint(c, impact_speed_threshold=self.constraint_handler.impact_speed_threshold)
             self.constraint_handler.add_constraint(contact_constraint)
             self.correction_constraint_handler.add_constraint(contact_constraint)
 
-        for c in self.collision_handler.collisions:
             friction_constraint = constraint.FrictionConstraint(c)
             self.constraint_handler.add_constraint(friction_constraint)
-
-        self.n_friction_constraints = len(self.collision_handler.collisions) # TODO: should this variable be a part of the constraint handler?
 
     def step(self, dt): # Chapter 4.1 details the steps in this method
         # steps 1 and 2 happen outside this method
