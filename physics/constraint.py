@@ -185,6 +185,5 @@ class FrictionConstraint(Constraint):
         return sign * np.block([[tangent, rotJ],
                                 [-tangent, -rotJ]])
 
-    # TODO: should this be zeros?
     def e(self):
-        return self.collision.dist # the extra is added to make sure contacts remain dispite numerical errors # TODO: how much should it be?
+        return np.zeros((self.dimension,)) # friction has no positional error to drift-correct
