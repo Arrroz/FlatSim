@@ -32,66 +32,34 @@ class LemkeSolver(Solver):
         return (new_y_ids, new_B)
 
 
-    def lemke_iteration(self, entering_i, y_ids, B):
-        if tuple(y_ids) in self.visited_nodes: # TODO: inefficient as it considers a different order of y_ids as a different node, making it get tested again
-            return None
-        self.visited_nodes.append(tuple(y_ids))
-
-        c = self.full_B[:, entering_i]
-
-        B_inv = np.linalg.pinv(B)
-        #B_inv = np.linalg.inv(B)
-        Bc = B_inv @ c
-        Bq = B_inv @ self.q
-
+    def lemke_min_ratio(self, Bc, Bq, B_inv): # returns the row to drop, chosen by the lexico-minimum ratio test
         # a basic variable can only reach zero (and drop out) if its Bc entry is positive; a non-positive
         # entry means that variable grows or stays put as the entering one increases, so it never binds
-        dropping_candidates = np.array([Bc[i] > self.tol for i in range(self.n)])
+        dropping_candidates = [i for i in range(self.n) if Bc[i] > self.tol]
 
-        if dropping_candidates.sum() == 0: # dead end: no variable can drop, so this path has no solution
+        if len(dropping_candidates) == 0: # ray termination: no variable can drop, so this LCP has no solution
             return None
 
-        # minimum ratio test, evaluated only where Bc is positive so we never divide by zero;
-        # a minimum ratio of zero is valid (a degenerate pivot) and must be kept
-        ratios = np.array([Bq[i] / Bc[i] if dropping_candidates[i] else np.inf for i in range(self.n)])
-        min_ratio = np.min(ratios)
-        for i in range(self.n):
-            if ratios[i] - min_ratio > self.tol: # keep only the (near-)tied minimum ratios; ties are broken below
-                dropping_candidates[i] = False
+        # ordinary minimum ratio test, keeping every (near-)tied minimum row
+        min_ratio = min(Bq[i] / Bc[i] for i in dropping_candidates)
+        tied = [i for i in dropping_candidates if Bq[i] / Bc[i] <= min_ratio + self.tol]
 
-        for dropping_i in range(self.n): # try removing z0 first; avoids extra iterations in case of tie
-            if dropping_candidates[dropping_i] and y_ids[dropping_i] == 0:
-                if self.debug: self.lemke_debug(entering_i, dropping_i, y_ids, B)
-                return self.lemke_pivot(entering_i, dropping_i, y_ids, B, c)
+        # break ties lexicographically on the rows of B_inv (each divided by Bc): compare the first column,
+        # then the next, and so on, keeping the smallest. Because B_inv is invertible its rows are all
+        # distinct, so some column always yields a unique winner - which is what prevents cycling.
+        col = 0
+        while len(tied) > 1 and col < self.n:
+            best = min(B_inv[i, col] / Bc[i] for i in tied)
+            tied = [i for i in tied if B_inv[i, col] / Bc[i] <= best + self.tol]
+            col += 1
 
-        for dropping_i in range(self.n-1, -1, -1): # going through the range the other way around to start by trying to remove the w variables
-            if not dropping_candidates[dropping_i]:
-                continue
-
-            if self.debug: self.lemke_debug(entering_i, dropping_i, y_ids, B)
-
-            self.iteration += 1
-            if self.iteration > self.max_iterations:
-                return None
-
-            next_entering_i = self.lemke_complimentary(y_ids[dropping_i], self.n) # get complimentary variable to the dropping one; this is the next entering variable
-            new_y_ids, new_B = self.lemke_pivot(entering_i, dropping_i, y_ids, B, c) # get the state of the next iteration
-
-            sol = self.lemke_iteration(next_entering_i, new_y_ids, new_B)
-            if sol != None:
-                return sol # return the solution if found through this iteration
-
-            if self.debug: print('------  backtrack  ------') # inform that it failed to find a solution with the previous pivot
-
-        return None # no solutions found in this iteration
+        return tied[0]
 
     # TODO: apply optimizations from Chapter 4.8
     def lemke(self): # returns (w, z)
         self.n = self.q.shape[0]
         if self.M.shape != (self.n,self.n) or self.q.shape != (self.n,):
             raise ValueError('Lemke: matrix M has dimensions', self.M.shape, 'and vector q has dimensions', self.q.shape)
-
-        self.visited_nodes = [] # used to avoid infinite recursion
 
         y_ids = np.arange(self.n+1, 2*self.n+1) # y_ids saves the indices of the variables in the basic vector y
         self.full_B = np.block([-np.ones((self.n,1)), -self.M, np.identity(self.n)])
@@ -102,16 +70,32 @@ class LemkeSolver(Solver):
         if self.q[dropping_i] >= -self.tol: # if all elements of q are non-negative (within tolerance), the solution is trivial
             return (np.maximum(self.q, 0), np.zeros((self.n,))) # clamp away any tiny negative roundoff so w stays feasible
 
+        # first pivot: the artificial variable z0 enters, the most infeasible row (most negative q) drops
         y_ids[dropping_i] = entering_i
         B[:, dropping_i] = self.full_B[:, entering_i]
+        entering_i = dropping_i + 1 # next entering variable is the complement of the w that just left
 
-        entering_i = dropping_i + 1
+        for _ in range(int(self.max_iterations)):
+            c = self.full_B[:, entering_i]
+            B_inv = np.linalg.pinv(B)
+            Bc = B_inv @ c
+            Bq = B_inv @ self.q
 
-        sol = self.lemke_iteration(entering_i, y_ids, B)
-        if sol == None:
-            raise RuntimeError('Lemke Solver failed to find a solution')
+            dropping_i = self.lemke_min_ratio(Bc, Bq, B_inv)
+            if dropping_i == None:
+                raise RuntimeError('Lemke Solver failed to find a solution')
 
-        y_ids, B = sol
+            if self.debug: self.lemke_debug(entering_i, dropping_i, y_ids, B)
+
+            dropped_id = y_ids[dropping_i]
+            y_ids, B = self.lemke_pivot(entering_i, dropping_i, y_ids, B, c)
+
+            if dropped_id == 0: # z0 left the basis, so we have found a solution
+                break
+
+            entering_i = self.lemke_complimentary(dropped_id, self.n) # next entering variable is the complement of the one that just left
+        else:
+            raise RuntimeError('Lemke Solver exceeded max iterations')
 
         y, _, _, _ = np.linalg.lstsq(B, self.q)
         #y = np.linalg.solve(B, self.q)
