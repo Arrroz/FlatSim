@@ -5,12 +5,13 @@ class Engine():
 
     def __init__(self, bodies: list[body.Body], constraints: list[constraint.Constraint],
                  integration_solver: solver.Solver = solver.LemkeSolver(), drift_solver: solver.Solver = solver.LemkeSolver(),
-                 min_sub_dt=1e-4):
+                 min_sub_dt=1e-4, max_drift_iterations=3):
         self.bodies = bodies
         self.constraints = constraints
         self.integration_solver = integration_solver
         self.drift_solver = drift_solver
         self.min_sub_dt = min_sub_dt
+        self.max_drift_iterations = max_drift_iterations # correct_drift is a linear approximation and can overshoot into penetration; retry (re-detecting collisions each time) until resolved or this cap is hit
 
         self.constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
         self.correction_constraint_handler = constraint.ConstraintHandler(self.constraints, self.bodies)
@@ -116,29 +117,36 @@ class Engine():
             self.movables[i].rtorque = 0
 
     def correct_drift(self):
-        # update necessary constraint matrices
-        self.correction_constraint_handler.update_jacobians()
-        self.correction_constraint_handler.update_constraint_errors()
-        mat = self.correction_constraint_handler.matrices
+        for _ in range(self.max_drift_iterations):
+            # update necessary constraint matrices
+            self.correction_constraint_handler.update_jacobians()
+            self.correction_constraint_handler.update_constraint_errors()
+            mat = self.correction_constraint_handler.matrices
 
-        # update solver matrices as needed
-        solver = self.drift_solver
-        if solver.q.shape[0] != mat.M_dim + mat.C_dim:
-            self.reset_solver_matrices()
+            # update solver matrices as needed
+            solver = self.drift_solver
+            if solver.q.shape[0] != mat.M_dim + mat.C_dim:
+                self.reset_solver_matrices()
 
-        solver.M[:mat.M_dim, mat.M_dim:] = -np.transpose(mat.J)
-        solver.M[mat.M_dim:, :mat.M_dim] = mat.J
-        solver.q[mat.M_dim:] = mat.e
+            solver.M[:mat.M_dim, mat.M_dim:] = -np.transpose(mat.J)
+            solver.M[mat.M_dim:, :mat.M_dim] = mat.J
+            solver.q[mat.M_dim:] = mat.e
 
-        # solve for the changes in state
-        _, sol, _ = solver.solve()
-        delta_q = sol[:mat.M_dim]
+            # solve for the changes in state
+            _, sol, _ = solver.solve()
+            delta_q = sol[:mat.M_dim]
 
-        # apply those changes
-        for i in range(len(self.movables)):
-            self.movables[i].x += delta_q[3*i]
-            self.movables[i].y += delta_q[3*i+1]
-            self.movables[i].theta += delta_q[3*i+2]
+            # apply those changes
+            for i in range(len(self.movables)):
+                self.movables[i].x += delta_q[3*i]
+                self.movables[i].y += delta_q[3*i+1]
+                self.movables[i].theta += delta_q[3*i+2]
+
+            # the correction is a linear approximation and can overshoot into penetration (or leave it
+            # unresolved); re-detect so contacts reflect the corrected positions, then retry if still penetrating
+            self.update_collision_constraints()
+            if not any(c.dist < 0 for c in self.collision_handler.collisions):
+                break
 
     def update_collision_constraints(self):
         for c in self.constraint_handler.constraints[:]: # iterating over a copy so that removing mid loop doesn't skip elements # TODO: find way of maintaining contacts that don't disappear
