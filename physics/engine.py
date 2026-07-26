@@ -174,12 +174,17 @@ class Engine():
         frame_wrenches = [m.rwrench.copy() for m in self.movables]
 
         remaining_dt = dt
+        sub_dt = dt # carries over between sub-steps instead of retrying from remaining_dt every time
         while remaining_dt > 0:
-            sub_dt = remaining_dt
+            sub_dt = min(sub_dt, remaining_dt)
 
             # snapshot the state at the start of this subframe so a rejected attempt can be fully undone
             subframe_poses = [m.pose.copy() for m in self.movables]
             subframe_vels = [m.vel.copy() for m in self.movables]
+
+            # halving sub_dt only helps when interpenetration is CAUSED by this subframe's integration; if it was
+            # already there beforehand, no amount of halving fixes that (that's correct_drift's job), so skip straight to accepting
+            prev_interpenetration = any(c.dist < 0 for c in self.collision_handler.collisions)
 
             while True:
                 # restore the start-of-subframe state and forces before each attempt
@@ -192,6 +197,9 @@ class Engine():
 
                 # step 7: rebuild the contact and friction constraints from the new positions
                 self.update_collision_constraints()
+
+                if prev_interpenetration:
+                    break
 
                 # check for interpenetration
                 interpenetration = False

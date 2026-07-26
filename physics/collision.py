@@ -206,42 +206,43 @@ class Line(CollidableFeature):
             collisions = []
             penetrating_collisions = []
 
-            # the two segments intersect if the infinite-line crossing point lies within both extents
+            # parallel edges (det == 0) are left to whichever perpendicular edges these belong to;
+            # a parallel pair can overlap along a whole range instead of a point, which the vertex-vs-edge
+            # tests below aren't built to handle and turns into redundant/degenerate contacts
             det = self.tangent[1] * other.tangent[0] - self.tangent[0] * other.tangent[1]
-            if det == 0: # parallel: no crossing
-                intersect = False
-            else:
-                inv_mat = np.array([[other.tangent[1], -other.tangent[0]], [self.tangent[1], -self.tangent[0]]]) / det
-                sol = inv_mat @ (self.p1 - other.p1)
-                intersect = 0 <= sol[0] <= self.length and 0 <= sol[1] <= other.length
+            if det == 0:
+                return []
+
+            # the two segments intersect if the infinite-line crossing point lies within both extents
+            inv_mat = np.array([[other.tangent[1], -other.tangent[0]], [self.tangent[1], -self.tangent[0]]]) / det
+            sol = inv_mat @ (self.p1 - other.p1)
+            intersect = 0 <= sol[0] <= self.length and 0 <= sol[1] <= other.length
 
             proj1, dist1 = self.l2p_vecs(self.p1, other.p1, other.tangent, other.normal)
             proj2, dist2 = self.l2p_vecs(self.p2, other.p1, other.tangent, other.normal)
 
             for vertex_relative_pos, projection, dist in [(self.relative_p1, proj1, dist1), (self.relative_p2, proj2, dist2)]:
-                if 0 <= projection <= other.length:
-                    rp1 = vertex_relative_pos
-                    rp2 = other.relative_p1 + projection * other.tangent
-                    col = Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist)
-                    if 0 < dist <= tolerance:
-                        collisions.append(col)
-                    elif dist <= 0 and intersect:
-                        penetrating_collisions.append(col)
+                rp1 = vertex_relative_pos
+                rp2 = other.relative_p1 + projection * other.tangent
+                col = Collision(self.parent, other.parent, rp1, rp2, -other.normal, dist)
+                if 0 <= projection <= other.length and 0 < dist <= tolerance:
+                    collisions.append(col)
+                elif dist <= 0 and intersect:
+                    penetrating_collisions.append(col)
 
             proj1, dist1 = self.l2p_vecs(other.p1, self.p1, self.tangent, self.normal)
             proj2, dist2 = self.l2p_vecs(other.p2, self.p1, self.tangent, self.normal)
 
             for vertex_relative_pos, projection, dist in [(other.relative_p1, proj1, dist1), (other.relative_p2, proj2, dist2)]:
-                if 0 <= projection <= self.length:
-                    rp1 = self.relative_p1 + projection * self.tangent
-                    rp2 = vertex_relative_pos
-                    col = Collision(self.parent, other.parent, rp1, rp2, self.normal, dist)
-                    if 0 < dist <= tolerance:
-                        collisions.append(col)
-                    elif dist <= 0 and intersect:
-                        penetrating_collisions.append(col)
+                rp1 = self.relative_p1 + projection * self.tangent
+                rp2 = vertex_relative_pos
+                col = Collision(self.parent, other.parent, rp1, rp2, self.normal, dist)
+                if 0 <= projection <= self.length and 0 < dist <= tolerance:
+                    collisions.append(col)
+                elif dist <= 0 and intersect:
+                    penetrating_collisions.append(col)
 
-            if len(penetrating_collisions) > 0:
+            if len(penetrating_collisions) >= 2:
                 penetrating_collisions.sort(key = lambda c: c.dist, reverse = True)
                 collisions.append(penetrating_collisions[0])
 
